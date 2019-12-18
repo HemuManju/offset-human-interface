@@ -3,10 +3,11 @@ from pathlib import Path
 import numpy as np
 
 
-class UGV(object):
+class UgV(object):
     """This the base class for single UGV robot
     """
-    def __init__(self, pb, init_pos, init_orientation, robot_id, config):
+    def __init__(self, pb, init_pos, init_orientation, robot_id, config,
+                 team_type):
         self.p = pb
 
         # Properties UGV
@@ -39,9 +40,9 @@ class UGV(object):
                 0] / 'urdf/ground_vehicle_collision_free.urdf'
         else:
             path = Path(__file__).parents[0] / 'urdf/ground_vehicle.urdf'
-        self.object_id = self.p.loadURDF(str(path), self.init_pos,
-                                         self.init_orientation)
-        self.constraint = self.p.createConstraint(self.object_id, -1, -1, -1,
+        self.object = self.p.loadURDF(str(path), self.init_pos,
+                                      self.init_orientation)
+        self.constraint = self.p.createConstraint(self.object, -1, -1, -1,
                                                   self.p.JOINT_FIXED,
                                                   [0, 0, 0], [0, 0, 0],
                                                   self.init_pos)
@@ -59,7 +60,7 @@ class UGV(object):
         """
         Returns the position and orientation (as Yaw angle) of the robot.
         """
-        pos, rot = self.p.getBasePositionAndOrientation(self.object_id)
+        pos, rot = self.p.getBasePositionAndOrientation(self.object)
         euler = self.p.getEulerFromQuaternion(rot)
         return np.array(pos), euler[2]
 
@@ -71,15 +72,7 @@ class UGV(object):
         dict
             A dictionary containing all the information
         """
-        info = {}
-        info['vehicle_id'] = self.vehicle_id
-        info['current_pos'] = self.current_pos
-        info['updated_pos'] = self.updated_pos
-        info['idle'] = self.idle
-        info['ammo'] = self.ammo
-        info['functional'] = self.functional
-        info['type'] = self.type
-
+        info = self.__dict__
         return info
 
     def set_position(self, position):
@@ -96,10 +89,11 @@ class UGV(object):
         return None
 
 
-class UAV(object):
+class UaV(object):
     """This the base class for single UGV robot
     """
-    def __init__(self, pb, init_pos, init_orientation, robot_id, config):
+    def __init__(self, pb, init_pos, init_orientation, robot_id, config,
+                 team_type):
         self.p = pb
         # Properties UGV
         self.vehicle_id = robot_id
@@ -129,9 +123,9 @@ class UAV(object):
                 __file__).parents[0] / 'urdf/arial_vehicle_collision_free.urdf'
         else:
             path = Path(__file__).parents[0] / 'urdf/arial_vehicle.urdf'
-        self.object_id = self.p.loadURDF(str(path), self.init_pos,
-                                         self.init_orientation)
-        self.constraint = self.p.createConstraint(self.object_id, -1, -1, -1,
+        self.object = self.p.loadURDF(str(path), self.init_pos,
+                                      self.init_orientation)
+        self.constraint = self.p.createConstraint(self.object, -1, -1, -1,
                                                   self.p.JOINT_FIXED,
                                                   [0, 0, 0], [0, 0, 0],
                                                   self.init_pos)
@@ -148,7 +142,7 @@ class UAV(object):
     def get_pos_and_orientation(self):
         """Returns the position and orientation (as Yaw angle) of the robot.
         """
-        pos, rot = self.p.getBasePositionAndOrientation(self.object_id)
+        pos, rot = self.p.getBasePositionAndOrientation(self.object)
         euler = self.p.getEulerFromQuaternion(rot)
         return np.array(pos), euler[2]
 
@@ -160,15 +154,7 @@ class UAV(object):
         dict
             A dictionary containing all the information
         """
-        info = {}
-        info['vehicle_id'] = self.vehicle_id
-        info['current_pos'] = self.current_pos
-        info['updated_pos'] = self.updated_pos
-        info['idle'] = self.idle
-        info['battery'] = self.battery
-        info['functional'] = self.functional
-        info['type'] = self.type
-
+        info = self.__dict__
         return info
 
     def set_position(self, position):

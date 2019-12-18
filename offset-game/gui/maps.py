@@ -30,7 +30,10 @@ class Map(pygame.sprite.Sprite):
         self.map_pos = self.env_surface.get_rect()
         return None
 
+    def image_processing(self, image):
+        return None
+
     def get_env_surface(self):
-        image_path = 'offset-game/gui/images/Benning.png'
+        image_path = 'offset-game/gui/images/Benning_nodes.png'
         image = pygame.image.load(image_path).convert()
         return image

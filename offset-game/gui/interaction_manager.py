@@ -106,7 +106,7 @@ class InteractionManager(pygame.sprite.Sprite):
             x, y = pygame.mouse.get_pos()
             target_pos = [x - map_pos[0], y - map_pos[1]]
             self.allocate.assign_target(actions, states, target_pos, ps)
-            pygame.draw.circle(self.map.surface, (0, 0, 0), [x, y], 10)
+            pygame.draw.circle(self.map.surface, (0, 0, 0), [x - 6, y - 6], 10)
 
         # Draw smoke
         self.smoke.render(self.map.surface,
@@ -115,9 +115,8 @@ class InteractionManager(pygame.sprite.Sprite):
         # Pause and resume game
         if game_state['pause']:
             pygame.gfxdraw.filled_circle(self.map.surface, 25, 25, 15,
-                                         (255, 255, 255))
-            pygame.gfxdraw.aacircle(self.map.surface, 25, 25, 15,
-                                    (255, 255, 255))
+                                         (255, 0, 0))
+            pygame.draw.circle(self.map.surface, (0, 0, 0), [25, 25], 16, 3)
 
         # Blit the final surface to screen
         self.map.screen.blit(self.map.surface, self.map.position)

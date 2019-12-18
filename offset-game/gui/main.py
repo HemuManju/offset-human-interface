@@ -47,6 +47,7 @@ class MainGUI(pygame.sprite.Sprite):
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                         return
+
             # Get latest states and actions
             states_id = ps.get_states.remote()
             actions_id = ps.get_actions.remote()
@@ -54,13 +55,20 @@ class MainGUI(pygame.sprite.Sprite):
             states, actions, game_state = ray.get(
                 [states_id, actions_id, game_state_id])
 
+            # Get latest red team states and actions
+            states_id = ps.get_states.remote(complexity=True)
+            actions_id = ps.get_actions.remote(complexity=True)
+            complexity_states, complexity_actions, _ = ray.get(
+                [states_id, actions_id, game_state_id])
+
             # Update all the modules
             self.user_input.update(actions, ps)
-            self.action_manager.update(states)
+            self.action_manager.check_perimeter(states, complexity_states, ps)
+            self.action_manager.update(states, complexity_states)
             self.interaction_manager.update(states, actions, game_state, ps)
             self.user_input.update(actions, ps)
 
-            # Update the strategy and full map
+            # # Update the strategy and full map
             self.strategy.update(event)
             self.fullmap.update()
             pygame.display.flip()

@@ -18,7 +18,7 @@ class SkeletonPlanning():
     """
     def __init__(self, config, grid):
         # Save the graph if not there
-        file_path = Path(__file__).parents[3] / config[
+        file_path = Path(__file__).parents[4] / config[
             'graph_save_path'] / 'planning_graph.gpickle'
         if not Path(file_path).exists():
             self.full_map = grid.astype(int)

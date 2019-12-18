@@ -11,7 +11,7 @@ class Extraction():
 
     def Primative(self, action, ps):
         self.Primativelist.append(action)
-        ps.set_actions(action)
+        ps.set_action(action)
 
     def targetpostion(self, x, y, ps):
         self.targetpositionlist.append([x, y])

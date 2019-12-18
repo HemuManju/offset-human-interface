@@ -62,7 +62,7 @@ class TaskAllocation(pygame.sprite.Sprite):
                 for platoon in platoons:
                     # Convert to catesian form
                     states[platoon_type][platoon]['selected'] = True
-                    ps.set_states.remote(states[platoon_type][platoon])
+                    ps.set_state.remote(states[platoon_type][platoon])
         return None
 
     def assign_target(self, actions, states, target_pos, ps):
@@ -74,8 +74,8 @@ class TaskAllocation(pygame.sprite.Sprite):
                     target_pos = [(target_pos[1] - 340) * 0.2,
                                   (target_pos[0] - 420) * 0.2]
                     actions[platoon_type][platoon]['target_pos'] = target_pos
-                    ps.set_actions.remote(actions[platoon_type][platoon])
+                    ps.set_action.remote(actions[platoon_type][platoon])
                     # Set the selection to False
                     states[platoon_type][platoon]['selected'] = False
-                    ps.set_states.remote(states[platoon_type][platoon])
+                    ps.set_state.remote(states[platoon_type][platoon])
         return None
