@@ -14,6 +14,7 @@ class BaseEnv(object):
         if config['simulation']['headless']:
             self.p = bullet_client.BulletClient(connection_mode=p.DIRECT)
         else:
+
             self.p = bullet_client.BulletClient(connection_mode=p.GUI)
             self.p.resetDebugVisualizerCamera(cameraDistance=150,
                                               cameraYaw=0,
@@ -25,8 +26,10 @@ class BaseEnv(object):
 
         # Set parameters for simulation
         self.p.setPhysicsEngineParameter(
-            fixedTimeStep=config['simulation']['time_step'], numSubSteps=1)
-        # self.p.setRealTimeSimulation(1)
+            fixedTimeStep=config['simulation']['time_step'] / 10,
+            numSubSteps=1,
+            numSolverIterations=5)
+        self.p.setRealTimeSimulation(1)
 
         # Setup ground
         plane = self.p.loadURDF("plane.urdf", [0, 0, 0],

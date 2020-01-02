@@ -18,6 +18,8 @@ ugv:
   primitive: 'planning'
   n_vehicles: 8
   target_pos: [20, 100]
+  source_pos: [20, 80]
+  sink_pos: [20, 100]
   vehicles_id: []
   vehicles_type: 'ugv'
   vehicles: []

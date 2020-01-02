@@ -3,6 +3,7 @@
 simulation:
   total_time: 600
   current_time: 0
+  real_time: False
   time_step: 1.0
   headless: False
   collision_free: True
@@ -30,7 +31,7 @@ uav:
   search_dist: 5
   max_formation_size: 10
 ugv:
-  speed: 1.0
+  speed: 2.0
   search_speed: 1.0
   defense_radius: 3
   max_formation_size: 10
@@ -91,6 +92,6 @@ log_path: 'data/log/'
 rrt_data_path: 'data/processed/map_data/rrt'
 graph_save_path: 'data/processed/map_data/'
 ##---------------------------------------------------------------------##
-# Paths
+# Misc parameters
 record_video: False
 log_states: False

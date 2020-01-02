@@ -9,7 +9,8 @@ class BlueTeam(object):
         self.current_time = config['simulation']['current_time']
         self.done = False
         self.config = config
-        # Initialize the state and action components
+
+        # Initialize state and action managers
         self.state_manager = StateManager(uav, ugv, self.current_time,
                                           self.config)
         self.action_manager = ActionManager(self.state_manager)
@@ -30,9 +31,9 @@ class BlueTeam(object):
     def get_attributes(self, attributes):
         return self.action_manager.platoon_attributes(attributes)
 
-    def execute(self, actions_uav, actions_ugv):
+    def execute(self):
         """Take a step in the environement
         """
         # Execute the actions
-        self.action_manager.primitive_execution(actions_uav, actions_ugv)
+        self.action_manager.primitive_execution()
         return None

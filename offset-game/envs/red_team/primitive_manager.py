@@ -14,6 +14,7 @@ class PrimitiveManager(object):
             An instance of state manager
         """
         self.state_manager = state_manager
+        self.dt = self.state_manager.config['simulation']['time_step']
 
         # Instance of primitives
         self.planning = SkeletonPlanning(self.state_manager.config,
@@ -21,30 +22,25 @@ class PrimitiveManager(object):
         self.formation = FormationControl()
         return None
 
-    def set_action(self, action):
-        """Set up the parameters of the premitive execution
-
-        Parameters
-        ----------
-        primitive_parameters : dict
-            A dictionary containing information about vehicles
-            and primitive realted parameters.
-        """
-        # Primitive parameters
-        self.dt = self.state_manager.config['simulation']['time_step']
-        self.action = action  # make a copy and use it everywhere
-        self.key = self.action['vehicles_type'] + '_p_' + str(
-            self.action['platoon_id'])
-
-        if self.action['vehicles_type'] == 'uav':
-            self.action['vehicles'] = [
-                self.state_manager.uav[j] for j in self.action['vehicles_id']
-            ]
-        else:
-            self.action['vehicles'] = [
-                self.state_manager.ugv[j] for j in self.action['vehicles_id']
-            ]
+    def allocate_action(self, action):
+        self.action = action
+        self.key = action['vehicles_type'] + '_p_' + str(action['platoon_id'])
         return None
+
+    def execute_primitive(self):
+        """Perform primitive execution
+        """
+        done = False
+        primitives = {
+            'planning': self.planning_primitive,
+            'formation': self.formation_primitive,
+            'patrolling': self.patrolling_primitive,
+            'chasing': self.chasing_primitive,
+            'shooting': self.shooting_primitive
+        }
+        if self.action['execute']:
+            done = primitives[self.action['primitive']]()
+        return done
 
     def make_vehicles_idle(self):
         """Make the vehicles idle
@@ -114,33 +110,18 @@ class PrimitiveManager(object):
         ]
         # As of now don't fit any splines
         if self.action['vehicles_type'] == 'uav':
-            new_points = np.array(points[-1]).T
+            path_points = np.array(points[-1])
         else:
-            new_points = np.array(points).T
-        return new_points, points
-
-    def primitive_parameters(self):
-        return self.__dict__['action']['centroid_pos']
-
-    def execute_primitive(self):
-        """Perform primitive execution
-        """
-        done = False
-        primitives = {
-            'planning': self.planning_primitive,
-            'formation': self.formation_primitive
-        }
-        self.primitive_parameters()
-        if self.action['n_vehicles'] > 1:
-            done = primitives[self.action['primitive']]()
-        return done
+            path_points = np.array(points)
+            path_points = path_points[0:-1:2, :]
+        return path_points
 
     def planning_primitive(self):
         """Performs path planning primitive
         """
         # Make vehicles non idle
         done_rolling = False
-        self.make_vehicles_nonidle()
+        # self.make_vehicles_nonidle()
 
         # Initial formation
         if self.action['initial_formation']:
@@ -150,16 +131,15 @@ class PrimitiveManager(object):
             done = self.formation_primitive()
             if done:
                 self.action['initial_formation'] = False
-                self.new_points, _ = self.get_spline_points()
-
+                self.path_points = self.get_spline_points()
         else:
             self.action['centroid_pos'] = self.get_centroid()
             distance = np.linalg.norm(self.action['centroid_pos'] -
                                       self.action['target_pos'])
 
-            if len(self.new_points) > 2 and distance > 2:
-                self.action['next_pos'] = self.new_points[0]
-                self.new_points = np.delete(self.new_points, 0, 0)
+            if len(self.path_points) > 2 and distance > 2:
+                self.action['next_pos'] = self.path_points[0]
+                self.path_points = np.delete(self.path_points, 0, 0)
             else:
                 self.action['next_pos'] = self.action['target_pos']
             self.formation_primitive()
@@ -180,6 +160,84 @@ class PrimitiveManager(object):
         self.action['vehicles'], done_rolling = self.formation.execute(
             self.action['vehicles'], self.action['next_pos'],
             self.action['centroid_pos'], self.dt, 'solid')
+
         for vehicle in self.action['vehicles']:
             vehicle.set_position(vehicle.updated_pos)
         return done_rolling
+
+    def patrolling_primitive(self):
+        """Perform patrolling primitive
+        """
+        # Initial formation
+        if self.action['initial_formation']:
+            # First point of formation
+            self.action['centroid_pos'] = self.get_centroid()
+            self.action['next_pos'] = self.action['centroid_pos']
+            done = self.formation_primitive()
+            if done:
+                self.action['initial_formation'] = False
+                self.action['target_pos'] = self.action['source_pos']
+                self.path_points = self.get_spline_points()
+                self.patrol_points = self.path_points.copy()
+        else:
+            self.action['centroid_pos'] = self.get_centroid()
+            distance = np.linalg.norm(self.action['centroid_pos'] -
+                                      self.action['sink_pos'])
+
+            if len(self.patrol_points) > 2 and distance > 2:
+                self.action['next_pos'] = self.patrol_points[0]
+                self.patrol_points = np.delete(self.patrol_points, 0, 0)
+            else:
+                self.action['next_pos'] = self.action['sink_pos']
+
+            self.formation_primitive()
+
+            if distance < 1:
+                # swap the source and sink
+                self.action['source_pos'], self.action[
+                    'sink_pos'] = self.action['sink_pos'], self.action[
+                        'source_pos']
+                self.patrol_points = np.flip(self.path_points, axis=0)
+
+    def chasing_primitive(self):
+        """Perform patrolling primitive
+        """
+        # Initial formation
+        if self.action['initial_formation']:
+            # First point of formation
+            self.action['centroid_pos'] = self.get_centroid()
+            self.action['next_pos'] = self.action['centroid_pos']
+            done = self.formation_primitive()
+            if done:
+                self.action['initial_formation'] = False
+                self.action['target_pos'] = [20, 100]
+                self.path_points = self.get_spline_points()
+        else:
+            if len(self.path_points) > 2:
+                self.action['centroid_pos'] = self.get_centroid()
+                self.action['next_pos'] = self.path_points[0]
+                self.path_points = np.delete(self.path_points, 0, 0)
+            else:
+                self.action['next_pos'] = self.action['source_pos']
+
+            self.formation_primitive()
+            distance = np.linalg.norm(self.action['centroid_pos'] -
+                                      self.action['source_pos'])
+
+            if distance > 20:
+                # swap the source and sink
+                self.action['target_pos'] = self.action['source_pos']
+                self.path_points = self.get_spline_points()
+
+    def shooting_primitive(self):
+        """Perform shooting primitive
+        """
+
+        # First point of formation
+        self.action['centroid_pos'] = self.get_centroid()
+        self.action['next_pos'] = self.action['centroid_pos']
+
+        # TODO: A function to indicate how much drones are lost
+
+        # Perform formation control
+        self.formation_primitive()

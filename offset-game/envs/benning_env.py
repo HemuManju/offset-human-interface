@@ -8,6 +8,10 @@ from .base_env import BaseEnv
 from .blue_team.blue_base import BlueTeam
 from .red_team.red_base import RedTeam
 
+from .interaction_manager import InteractionManager
+
+# import ray
+
 
 class BenningEnv(BaseEnv):
     def __init__(self, config):
@@ -26,6 +30,9 @@ class BenningEnv(BaseEnv):
 
         # Initial step of blue and red team
         self._initial_team_setup()
+
+        # Initialize interaction manager
+        self.interaction_manager = InteractionManager(config)
         return None
 
     def _initial_team_setup(self):
@@ -33,7 +40,7 @@ class BenningEnv(BaseEnv):
         uav_red, ugv_red = self._initial_uxv_setup(team_type='red')
         self.red_team = RedTeam(self.config, uav_red, ugv_red)
 
-        # Blue team
+        # # Blue team
         uav_blue, ugv_blue = self._initial_uxv_setup(team_type='blue')
         self.blue_team = BlueTeam(self.config, uav_blue, ugv_blue)
         return None
@@ -76,18 +83,35 @@ class BenningEnv(BaseEnv):
         current_time = 0
         duration = self.config['experiment']['duration']
 
+        # Perform action allocation for blue and red team respectively
+        self.blue_team.action_manager.perform_action_allocation(
+            actions_uav, actions_ugv)
+
+        self.red_team.action_manager.perform_action_allocation(
+            actions_uav, actions_ugv)
+
+        # t = time.time()
+
+        # Run the simulation
         while not done_rolling_actions and current_time <= duration:
+            t = time.time()
             simulation_count += 1
             current_time = time.time() - start_time
-            t = time.time()
+
+            # Interaction Manager (this over-rides the given actions)
+            self.interaction_manager.update_actions(self.blue_team,
+                                                    self.red_team)
+
             # Run the blue team (these can be made parallel)
-            self.blue_team.execute(actions_uav, actions_ugv)
-            blue_team_attr = self.blue_team.get_attributes(['centroid_pos'])
+            self.blue_team.execute()
 
             # Run the red team (these can be made parallel)
-            # self.red_team.execute(blue_team_attr)
-            # print(time.time() - t)
+            self.red_team.execute()
+
+            # Perform a step in simulation to update
             self.base_env_step()
+            print(time.time() - t)
+            print('--------------')
 
     def get_reward(self):
         """Update reward of all the agents

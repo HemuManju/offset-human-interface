@@ -70,6 +70,11 @@ with skip_run('skip', 'Complexity Test') as check, check():
     ray.shutdown()
 
 with skip_run('run', 'Test New Framework') as check, check():
+
+    # # Initiate ray
+    # if not ray.is_initialized():
+    #     ray.init(num_cpus=5)
+
     read_path = Path(__file__).parents[0] / 'test.yml'
     parameters = yaml.load(open(str(read_path)), Loader=yaml.SafeLoader)
 

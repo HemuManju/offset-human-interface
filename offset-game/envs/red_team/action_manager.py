@@ -18,7 +18,6 @@ class ActionManager(object):
 
             As an example one of the keys is 'uav_p_1'
             which is platoon 1 of type uav
-
         """
         self.uav_platoons = {}  # A container for platoons
         for i in range(self.config['simulation']['n_uav_platoons']):
@@ -31,45 +30,24 @@ class ActionManager(object):
             self.ugv_platoons[key] = PrimitiveManager(self.state_manager)
         return None
 
-    def perform_task_allocation(self, actions_uav, actions_ugv):
-        """Perfroms task allocation
+    def platoon_attributes(self, attributes):
+        """Returns the attributes of the primitive manager such as actions or
+        specific attricutes such as centroid of platoons or target postiion
 
         Parameters
         ----------
-        actions_uav : array
-            UAV decoded actions
-        actions_ugv : array
-            UGV decoded actions
+        attributes : list
+            A list of attributes to extract from the primitive manager.
+            If this is empyt all the member variables
+            from the primitive instance will be returned
+
+        Returns
+        -------
+        dict
+            A dictionary of all the attributes
+            as specified by the 'attributes' input parameter
         """
-        ids = 0
-        target_pos = [[20, 100], [50, 150], [20, 150]]
-        for i, key in enumerate(self.uav_platoons):
-            n_vehicles = actions_uav[key]['n_vehicles']
-            # Execute only when there are more than 0 vehicles
-            if n_vehicles < 1:
-                actions_uav[key]['execute'] = False
 
-            vehicles_id = list(range(ids, ids + n_vehicles))
-            ids = ids + n_vehicles
-            actions_uav[key]['vehicles_id'] = vehicles_id
-            actions_uav[key]['target_pos'] = target_pos[i]
-            self.uav_platoons[key].set_action(actions_uav[key])
-
-        ids = 0
-        for i, key in enumerate(self.ugv_platoons):
-            n_vehicles = actions_ugv[key]['n_vehicles']
-            # Execute only when there are more than 0 vehicles
-            if n_vehicles < 1:
-                actions_ugv[key]['execute'] = False
-
-            # Set number of vehicles
-            vehicles_id = list(range(ids, ids + n_vehicles))
-            ids = ids + n_vehicles
-            actions_ugv[key]['vehicles_id'] = vehicles_id
-            self.ugv_platoons[key].set_action(actions_ugv[key])
-        return None
-
-    def platoon_attributes(self, attributes):
         attribute = {}
         for i in range(self.config['simulation']['n_uav_platoons']):
             platoon_key = 'uav_p_' + str(i + 1)
@@ -93,7 +71,94 @@ class ActionManager(object):
                     self.ugv_platoons[platoon_key])['action']
         return attribute
 
-    def primitive_execution(self, actions_uav, actions_ugv, hand_coded=True):
+    def get_allocated_vehicle(self, n_vehicles, vehicles_type):
+        """Allocated the vehicles to the platoons as required
+
+        Parameters
+        ----------
+        n_vehicles : int
+            Number of vehicles in the platoon
+        vehicles_type : str
+            Type of vehicles 'uav' or 'ugv'
+
+        Returns
+        -------
+        vehicles_id: list
+            A list of vehicles_id assigned to a platoon
+        vehicles: list
+            A list of vehicle instance of uav or ugv
+        """
+        vehicles, vehicles_id = [], []
+        if vehicles_type == 'uav':
+            for uav in self.state_manager.uav:
+                if uav.idle and uav.functional:
+                    vehicles.append(uav)
+                    vehicles_id.append(uav.vehicle_id)
+                    uav.idle = False  # Once allocated they are non-idles
+
+                if len(vehicles) == n_vehicles:
+                    break
+        else:
+            for ugv in self.state_manager.ugv:
+                if ugv.idle and ugv.functional:
+                    vehicles.append(ugv)
+                    vehicles_id.append(ugv.vehicle_id)
+
+                if len(vehicles) == n_vehicles:
+                    break
+
+        return vehicles_id, vehicles
+
+    def perform_action_allocation(self, actions_uav, actions_ugv):
+        """Perfroms action allocation and
+
+            Parameters
+            ----------
+            actions_uav : dict
+                UAV decoded actions
+            actions_ugv : dict
+                UGV decoded actions
+            """
+        # UAV Actions
+        for key in actions_uav:
+            n_vehicles = actions_uav[key]['n_vehicles']
+
+            # Allocate only when there are more than 0 vehicles
+            if n_vehicles < 1:
+                actions_uav[key]['execute'] = False
+            else:
+                # Perform vehicle allocation
+                vehicles_id, vehicles = self.get_allocated_vehicle(
+                    n_vehicles, vehicles_type='uav')
+
+                # Update actions
+                actions_uav[key]['vehicles_id'] = vehicles_id
+                actions_uav[key]['vehicles'] = vehicles
+
+            # Allocate
+            self.uav_platoons[key].allocate_action(actions_uav[key])
+
+        # UGV actions
+        for key in actions_ugv:
+            n_vehicles = actions_ugv[key]['n_vehicles']
+
+            # Allocate only when there are more than 0 vehicles
+            if n_vehicles < 1:
+                actions_ugv[key]['execute'] = False
+            else:
+                # Perform vehicle allocation
+                vehicles_id, vehicles = self.get_allocated_vehicle(
+                    n_vehicles, vehicles_type='ugv')
+
+                # Update actions
+                actions_ugv[key]['vehicles_id'] = vehicles_id
+                actions_ugv[key]['vehicles'] = vehicles
+
+            # Allocate
+            self.ugv_platoons[key].allocate_action(actions_ugv[key])
+        return None
+
+    def primitive_execution(self):
         """Performs task execution
 
         Parameters
@@ -105,8 +170,6 @@ class ActionManager(object):
         hand_coded : bool
             Whether hand coded tactics are being used or not
         """
-
-        self.perform_task_allocation(actions_uav, actions_ugv)
 
         primitives_done = []
         # Update all the ugv vehicles

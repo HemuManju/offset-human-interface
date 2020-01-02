@@ -85,6 +85,7 @@ class UgV(object):
         """
         pos, _ = self.get_pos_and_orientation()
         self.current_pos = pos
+        position[2] = 0.5  # Near ground
         self.p.changeConstraint(self.constraint, position)
         return None
 
@@ -167,6 +168,7 @@ class UaV(object):
         """
         pos, _ = self.get_pos_and_orientation()
         self.current_pos = pos
+        position[2] = 8.5
         self.p.changeConstraint(self.constraint, position)
 
         return None
