@@ -116,6 +116,11 @@ class PrimitiveManager(object):
             path_points = path_points[0:-1:2, :]
         return path_points
 
+    def get_camera_image(self, vehicle_id, image_type):
+        # TODO: implement to include the id inside the vehicle
+        image = self.action['vehicles'][vehicle_id].get_image(image_type)
+        return image
+
     def planning_primitive(self):
         """Performs path planning primitive
         """

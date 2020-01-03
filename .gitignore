@@ -88,3 +88,7 @@ target/
 # Mypy cache
 .mypy_cache/
 offset-game/envs/__pycache__/action_manager.cpython-37.pyc
+offset-game/envs/urdf/meshes/benning_new.jpg
+offset-game/envs/urdf/meshes/benning_new.mtl
+offset-game/envs/urdf/meshes/benning_new.obj
+offset-game/envs/urdf/meshes/benning_old.jpg

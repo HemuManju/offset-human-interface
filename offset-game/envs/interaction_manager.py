@@ -44,3 +44,6 @@ class InteractionManager(object):
             # Change the attribute
             self.change_action(blue_team, blue_action)
             self.change_action(red_team, red_action)
+
+        # print(blue_team.get_attributes([]))
+        # print(red_team.get_attributes([]))

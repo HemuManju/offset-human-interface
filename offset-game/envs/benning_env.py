@@ -10,8 +10,6 @@ from .red_team.red_base import RedTeam
 
 from .interaction_manager import InteractionManager
 
-# import ray
-
 
 class BenningEnv(BaseEnv):
     def __init__(self, config):
@@ -24,12 +22,22 @@ class BenningEnv(BaseEnv):
                 __file__).parents[0] / 'urdf/environment_collision_free.urdf'
         else:
             path = Path(__file__).parents[0] / 'urdf/environment.urdf'
-        self.p.loadURDF(str(path), [58.487, 23.655, 0.1],
-                        self.p.getQuaternionFromEuler([0, 0, math.pi / 2]),
+
+        self.p.loadURDF(str(path), [25, 140, 44],
+                        self.p.getQuaternionFromEuler([
+                            -0.45 * math.pi / 180, -24.5 * math.pi / 180,
+                            -20.0 * math.pi / 180
+                        ]),
+                        flags=self.p.URDF_USE_MATERIAL_COLORS_FROM_MTL,
                         useFixedBase=True)
+        # self.p.loadURDF(str(path), [58.487, 23.655, 0.1],
+        #                 self.p.getQuaternionFromEuler([0, 0, math.pi / 2]),
+        #                 useFixedBase=True)
 
         # Initial step of blue and red team
         self._initial_team_setup()
+
+        self.images = []
 
         # Initialize interaction manager
         self.interaction_manager = InteractionManager(config)
@@ -75,7 +83,7 @@ class BenningEnv(BaseEnv):
             time.sleep(1 / 240)
             self.p.stepSimulation()
 
-    def step(self, actions_uav, actions_ugv):
+    def step(self, actions_uav_b, actions_ugv_b, actions_uav_r, actions_ugv_r):
         # Roll the actions
         done_rolling_actions = False
         simulation_count = 0
@@ -85,16 +93,14 @@ class BenningEnv(BaseEnv):
 
         # Perform action allocation for blue and red team respectively
         self.blue_team.action_manager.perform_action_allocation(
-            actions_uav, actions_ugv)
+            actions_uav_b, actions_ugv_b)
 
         self.red_team.action_manager.perform_action_allocation(
-            actions_uav, actions_ugv)
-
-        # t = time.time()
+            actions_uav_r, actions_ugv_r)
 
         # Run the simulation
         while not done_rolling_actions and current_time <= duration:
-            t = time.time()
+
             simulation_count += 1
             current_time = time.time() - start_time
 
@@ -105,13 +111,16 @@ class BenningEnv(BaseEnv):
             # Run the blue team (these can be made parallel)
             self.blue_team.execute()
 
+            image = self.red_team.action_manager.get_image(1, 'uav', 0, 'all')
+            self.images.append(image)
+
             # Run the red team (these can be made parallel)
             self.red_team.execute()
 
             # Perform a step in simulation to update
             self.base_env_step()
-            print(time.time() - t)
-            print('--------------')
+            # print(time.time() - t)
+            # print('--------------')
 
     def get_reward(self):
         """Update reward of all the agents

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+from .sensors import Sensors
 
 
 class UgV(object):
@@ -30,7 +31,9 @@ class UgV(object):
         # Simulation parameters
         self.reward = 0
 
+        self.sensors = Sensors(pb)
         self._initial_setup()
+        return None
 
     def _initial_setup(self):
         """Initial step of objects and constraints
@@ -46,7 +49,32 @@ class UgV(object):
                                                   self.p.JOINT_FIXED,
                                                   [0, 0, 0], [0, 0, 0],
                                                   self.init_pos)
+
+        # Camera parameters
+        self.projectionMatrix = self.p.computeProjectionMatrixFOV(fov=45.0,
+                                                                  aspect=1.0,
+                                                                  nearVal=0.1,
+                                                                  farVal=50.0)
+        self.image_size = [128, 128]
         return None
+
+    def get_image(self, image_type):
+        """Get the camera image of the agent
+
+        Parameters
+        ----------
+        image_type : str
+            Specifying what kind of image to return
+
+        Returns
+        -------
+        array
+            A numpy array containing the image of specified image type
+        """
+        # Get position
+        pos, _ = self.get_pos_and_orientation()
+        image = self.sensors.get_camera_image(pos, image_type)
+        return image
 
     def reset(self):
         """Moves the robot back to its initial position
@@ -114,7 +142,10 @@ class UaV(object):
         self.config = config
         # Simulation parameters
         self.reward = 0
+
+        self.sensors = Sensors(pb)
         self._initial_setup()
+        return None
 
     def _initial_setup(self):
         """Initial step of objects and constraints
@@ -130,7 +161,32 @@ class UaV(object):
                                                   self.p.JOINT_FIXED,
                                                   [0, 0, 0], [0, 0, 0],
                                                   self.init_pos)
+
+        # Camera parameters
+        self.projectionMatrix = self.p.computeProjectionMatrixFOV(fov=45.0,
+                                                                  aspect=1.0,
+                                                                  nearVal=0.1,
+                                                                  farVal=50.0)
+        self.image_size = [256, 256]
         return None
+
+    def get_image(self, image_type):
+        """Get the camera image of the agent
+
+        Parameters
+        ----------
+        image_type : str
+            Specifying what kind of image to return
+
+        Returns
+        -------
+        array
+            A numpy array containing the image of specified image type
+        """
+        # Get position
+        pos, _ = self.get_pos_and_orientation()
+        image = self.sensors.get_camera_image(pos, image_type)
+        return image
 
     def reset(self):
         """Moves the robot back to its initial position
@@ -168,7 +224,7 @@ class UaV(object):
         """
         pos, _ = self.get_pos_and_orientation()
         self.current_pos = pos
-        position[2] = 8.5
+        position[2] = 9.5
         self.p.changeConstraint(self.constraint, position)
 
         return None

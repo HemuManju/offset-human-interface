@@ -109,6 +109,35 @@ class ActionManager(object):
 
         return vehicles_id, vehicles
 
+    def get_image(self, platoon_id, platoon_type, vehicle_id, image_type):
+        """Get the image of the agent
+
+        Parameters
+        ----------
+        platoon_id : int
+            The platoon ID to vehicle belongs to.
+        platoon_type : str
+            Platoon type 'uav' or 'ugv'
+        vehicle_id : int
+            Vehicle ID from which image is acquired
+        image_type : str
+            Type of image to return rgb, seg, depth
+
+        Returns
+        -------
+        array
+            A image from the vehicle of required type
+        """
+        if platoon_type == 'uav':
+            platoon_key = 'uav_p_' + str(platoon_id)
+            image = self.uav_platoons[platoon_key].get_camera_image(
+                vehicle_id, image_type)
+        else:
+            platoon_key = 'ugv_p_' + str(platoon_id)
+            image = self.ugv_platoons[platoon_key].get_camera_image(
+                vehicle_id, image_type)
+        return image
+
     def perform_action_allocation(self, actions_uav, actions_ugv):
         """Perfroms action allocation and
 
