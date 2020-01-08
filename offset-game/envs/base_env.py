@@ -23,12 +23,15 @@ class BaseEnv(object):
         self.p.setGravity(0, 0, -9.81)
         self.p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optional
 
+        # Whether to use real time or not
+        if self.config['simulation']['use_real_time']:
+            self.p.setRealTimeSimulation(1)
+
         # Set parameters for simulation
         self.p.setPhysicsEngineParameter(
             fixedTimeStep=config['simulation']['time_step'] / 10,
             numSubSteps=1,
             numSolverIterations=5)
-        # self.p.setRealTimeSimulation(1)
 
         self.p.configureDebugVisualizer(self.p.COV_ENABLE_GUI, 0)
 

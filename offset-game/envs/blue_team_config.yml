@@ -19,7 +19,7 @@ ugv_primitives:
 ##---------------------------------------------------------------------##
 # Attributes fields
 uav:
-  primitive: 'planning'
+  primitive: 'formation'
   n_vehicles: []
   target_pos: [20, 100]
   vehicles_id: []

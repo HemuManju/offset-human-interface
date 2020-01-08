@@ -21,6 +21,7 @@ def get_initial_positions(init_pos, r, n):
 
 class RedTeam(object):
     def __init__(self, p, config):
+        self.p = p
         # Environment parameters
         self.current_time = config['simulation']['current_time']
         self.done = False
@@ -28,9 +29,10 @@ class RedTeam(object):
 
         # Initialize the state and action components
         self.state_manager = StateManager(self.current_time, self.config)
-        uav, ugv = self._initial_uxv_setup(p)
+        uav, ugv = self._initial_uxv_setup(self.p)
         self.state_manager._initial_uxv(uav, ugv)  # Append the UxV
-        self.action_manager = ActionManager(self.state_manager, PrimitiveManager)
+        self.action_manager = ActionManager(self.state_manager,
+                                            PrimitiveManager)
 
     def _initial_uxv_setup(self, p):
         # Read the configuration of platoons
@@ -46,16 +48,16 @@ class RedTeam(object):
             n_vehicles = config['ugv_platoon']['n_vehicles'][i]
             positions = get_initial_positions(init_pos, 4, n_vehicles)
             for j, position in enumerate(positions):
-                ugv.append(
-                    UgV(p, position, init_orient, j, self.config, 'red'))
+                ugv.append(UgV(p, position, init_orient, j, self.config,
+                               'red'))
 
         for i, node in enumerate(config['uav_platoon']['initial_nodes_pos']):
             init_pos = self.state_manager.node_info(node)['position']
             n_vehicles = config['uav_platoon']['n_vehicles'][i]
             positions = get_initial_positions(init_pos, 4, n_vehicles)
             for j, position in enumerate(positions):
-                uav.append(
-                    UaV(p, position, init_orient, j, self.config, 'red'))
+                uav.append(UaV(p, position, init_orient, j, self.config,
+                               'red'))
         return uav, ugv
 
     def reset(self):

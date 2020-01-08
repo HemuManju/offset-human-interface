@@ -10,20 +10,18 @@ class ParameterServer(object):
     def __init__(self, config):
         self.config = config
         # Blue team behavior
-        self.actions = collections.defaultdict(dict)
-        self.states = collections.defaultdict(dict)
+        self.blue_actions = collections.defaultdict(dict)
 
         # Red team behavior
-        self.complexity_actions = collections.defaultdict(dict)
-        self.complexity_states = collections.defaultdict(dict)
+        self.red_actions = collections.defaultdict(dict)
 
         # Parameters for pausing and resuming the game
         self.pause = False
         self.resume = True
 
         # Perforn initial setup
-        self._initial_setup()
-        self._initial_complexity_setup()
+        # self._initial_setup()
+        # self._initial_complexity_setup()
         return None
 
     def _initial_setup(self):
@@ -36,7 +34,7 @@ class ParameterServer(object):
             uav_parameters = parameters['uav'].copy()
             key = 'uav_p_' + str(i + 1)
             uav_parameters['platoon_id'] = i + 1
-            self.actions['uav'][key] = uav_parameters
+            self.blue_actions['uav'][key] = uav_parameters
             self.states['uav'][key] = uav_parameters
 
         # Setup the uav platoons
@@ -44,7 +42,7 @@ class ParameterServer(object):
             ugv_parameters = parameters['ugv'].copy()
             key = 'ugv_p_' + str(i + 1)
             ugv_parameters['platoon_id'] = i + 1
-            self.actions['ugv'][key] = ugv_parameters
+            self.blue_actions['ugv'][key] = ugv_parameters
             self.states['ugv'][key] = ugv_parameters
         return None
 
@@ -58,7 +56,7 @@ class ParameterServer(object):
             uav_parameters = parameters['uav'].copy()
             key = 'uav_p_' + str(i + 1)
             uav_parameters['platoon_id'] = i + 1
-            self.complexity_actions['uav'][key] = uav_parameters
+            self.red_actions['uav'][key] = uav_parameters
             self.complexity_states['uav'][key] = uav_parameters
 
         # Setup the uav platoons
@@ -66,7 +64,7 @@ class ParameterServer(object):
             ugv_parameters = parameters['ugv'].copy()
             key = 'ugv_p_' + str(i + 1)
             ugv_parameters['platoon_id'] = i + 1
-            self.complexity_actions['ugv'][key] = ugv_parameters
+            self.red_actions['ugv'][key] = ugv_parameters
             self.complexity_states['ugv'][key] = ugv_parameters
         return None
 
@@ -85,22 +83,30 @@ class ParameterServer(object):
 
     def get_actions(self, complexity=False):
         if complexity:
-            return self.complexity_actions
+            return self.red_actions
         else:
-            return self.actions
+            return self.blue_actions
+
+    def set_all_actions(self, blue_actions, red_actions):
+        self.blue_actions = blue_actions
+        self.red_actions = red_actions
+        return None
+
+    def get_all_actions(self):
+        return self.blue_actions, self.red_actions
 
     def set_action(self, action, complexity=False):
         vehicle_type = action['vehicles_type']
         key = vehicle_type + '_p_' + str(action['platoon_id'])
         if complexity:
-            self.complexity_actions[vehicle_type][key] = action
+            self.red_actions[vehicle_type][key] = action
         else:
-            self.actions[vehicle_type][key] = action
+            self.blue_actions[vehicle_type][key] = action
         return None
 
     def update_actions(self, actions_uav, actions_ugv):
-        self.actions['uav'].update(actions_uav)
-        self.actions['ugv'].update(actions_ugv)
+        self.blue_actions['uav'].update(actions_uav)
+        self.blue_actions['ugv'].update(actions_ugv)
         return None
 
     def set_state(self, state, complexity=False):

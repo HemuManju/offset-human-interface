@@ -1,4 +1,3 @@
-
 class ActionManager(object):
     def __init__(self, state_manager, PrimitiveManager):
         self.state_manager = state_manager
@@ -46,26 +45,26 @@ class ActionManager(object):
             as specified by the 'attributes' input parameter
         """
 
-        attribute = {}
+        attribute = {'uav': {}, 'ugv': {}}
         for i in range(self.config['simulation']['n_uav_platoons']):
             platoon_key = 'uav_p_' + str(i + 1)
             if attributes:
-                attribute[platoon_key] = {
+                attribute['uav'][platoon_key] = {
                     attr: vars(self.uav_platoons[platoon_key])['action'][attr]
                     for attr in attributes
                 }
             else:
-                attribute[platoon_key] = vars(
+                attribute['uav'][platoon_key] = vars(
                     self.uav_platoons[platoon_key])['action']
         for i in range(self.config['simulation']['n_uav_platoons']):
             platoon_key = 'ugv_p_' + str(i + 1)
             if attributes:
-                attribute[platoon_key] = {
+                attribute['ugv'][platoon_key] = {
                     attr: vars(self.ugv_platoons[platoon_key])['action'][attr]
                     for attr in attributes
                 }
             else:
-                attribute[platoon_key] = vars(
+                attribute['ugv'][platoon_key] = vars(
                     self.ugv_platoons[platoon_key])['action']
         return attribute
 
@@ -89,6 +88,8 @@ class ActionManager(object):
         vehicles, vehicles_id = [], []
         if vehicles_type == 'uav':
             for uav in self.state_manager.uav:
+                # TODO: Need to come up with new method
+                # 1. Replaceed the idle data
                 if uav.idle and uav.functional:
                     vehicles.append(uav)
                     vehicles_id.append(uav.vehicle_id)
@@ -101,7 +102,7 @@ class ActionManager(object):
                 if ugv.idle and ugv.functional:
                     vehicles.append(ugv)
                     vehicles_id.append(ugv.vehicle_id)
-                    ugv.idle = False # Once allocated they are non-idles
+                    ugv.idle = False  # Once allocated they are non-idles
 
                 if len(vehicles) == n_vehicles:
                     break
@@ -184,6 +185,13 @@ class ActionManager(object):
 
             # Allocate
             self.ugv_platoons[key].allocate_action(actions_ugv[key])
+        return None
+
+    def make_vehicles_idle(self):
+        for uav in self.state_manager.uav:
+            uav.idle = True
+        for ugv in self.state_manager.ugv:
+            ugv.idle = True
         return None
 
     def primitive_execution(self):

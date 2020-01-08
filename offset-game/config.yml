@@ -3,7 +3,7 @@
 simulation:
   total_time: 600
   current_time: 0
-  real_time: False
+  use_real_time: False
   time_step: 1.0
   headless: False
   collision_free: True
@@ -23,6 +23,7 @@ simulation:
 ##---------------------------------------------------------------------##
 experiment:
   duration: 600
+  step_frames: 10
   perimeter_distance: 20
 ##---------------------------------------------------------------------##
 # UAV and UGV parameters

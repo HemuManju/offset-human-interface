@@ -2,7 +2,11 @@ import time
 import math
 from pathlib import Path
 
+import ray
+
 from .base_env import BaseEnv
+
+from .default_actions import blue_team_actions, red_team_actions
 
 from .blue_team.blue_base import BlueTeam
 from .red_team.red_base import RedTeam
@@ -10,6 +14,7 @@ from .red_team.red_base import RedTeam
 from .interaction_manager import InteractionManager
 
 
+@ray.remote
 class BenningEnv(BaseEnv):
     def __init__(self, config):
         # Initialise the base environment
@@ -51,12 +56,10 @@ class BenningEnv(BaseEnv):
             self.p.stepSimulation()
 
     def step(self, actions_uav_b, actions_ugv_b, actions_uav_r, actions_ugv_r):
+
         # Roll the actions
-        done_rolling_actions = False
         simulation_count = 0
-        start_time = time.time()
-        current_time = 0
-        duration = self.config['experiment']['duration']
+        step_frames = self.config['experiment']['step_frames']
 
         # Perform action allocation for blue and red team respectively
         self.blue_team.action_manager.perform_action_allocation(
@@ -65,16 +68,13 @@ class BenningEnv(BaseEnv):
         self.red_team.action_manager.perform_action_allocation(
             actions_uav_r, actions_ugv_r)
 
-        # Run the simulation
-        while not done_rolling_actions and current_time <= duration:
+        # # # Run the simulation
+        while simulation_count <= step_frames:
             simulation_count += 1
-            current_time = time.time() - start_time
+            self.base_env_step()  # Call this more frequenctly
 
             # Run the blue team (these can be made parallel)
             self.blue_team.execute()
-
-            # image = self.red_team.action_manager.get_image(1, 'uav', 0,'all')
-            # self.images.append(image)
 
             # Run the red team (these can be made parallel)
             self.red_team.execute()
@@ -85,6 +85,32 @@ class BenningEnv(BaseEnv):
 
             # Perform a step in simulation to update
             self.base_env_step()
+
+        # Once the loop is dones make all the vehicles idle
+        self.blue_team.action_manager.make_vehicles_idle()
+        self.red_team.action_manager.make_vehicles_idle()
+
+        # Get the latest attributes/actions
+        blue_actions = self.blue_team.get_attributes([])
+        red_actions = self.red_team.get_attributes([])
+        return blue_actions, red_actions
+
+    def main_loop(self):
+        # Roll the actions
+        start_time = time.time()
+        current_time = 0
+        duration = self.config['experiment']['duration']
+
+        # Initial setup of parameter server
+        blue_actions = blue_team_actions(self.config)
+        red_actions = red_team_actions(self.config)
+
+        while current_time <= duration:
+            current_time = time.time() - start_time
+            # Run the simulation
+            self.step(blue_actions['uav'], blue_actions['ugv'],
+                      red_actions['uav'], red_actions['ugv'])
+        return None
 
     def get_reward(self):
         """Update reward of all the agents

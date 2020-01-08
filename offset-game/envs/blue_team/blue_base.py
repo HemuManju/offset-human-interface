@@ -21,6 +21,7 @@ def get_initial_positions(init_pos, r, n):
 
 class BlueTeam(object):
     def __init__(self, p, config):
+        self.p = p
         # Environment parameters
         self.current_time = config['simulation']['current_time']
         self.done = False
@@ -28,9 +29,10 @@ class BlueTeam(object):
 
         # Initialize the state and action components
         self.state_manager = StateManager(self.current_time, self.config)
-        uav, ugv = self._initial_uxv_setup(p)
+        uav, ugv = self._initial_uxv_setup(self.p)
         self.state_manager._initial_uxv(uav, ugv)  # Append the UxV
-        self.action_manager = ActionManager(self.state_manager, PrimitiveManager)
+        self.action_manager = ActionManager(self.state_manager,
+                                            PrimitiveManager)
 
     def _initial_uxv_setup(self, p):
         # Read the configuration of platoons
