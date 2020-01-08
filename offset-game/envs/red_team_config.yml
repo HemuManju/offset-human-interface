@@ -25,7 +25,7 @@ ugv_primitives:
 uav:
   primitive: 'formation'
   n_vehicles: []
-  target_pos: [20, 100]
+  target_pos: []
   source_pos: []
   sink_pos: []
   vehicles: []
@@ -38,9 +38,9 @@ uav:
   execute: True
 ##---------------------------------------------------------------------##
 ugv:
-  primitive: 'planning'
+  primitive: 'formation'
   n_vehicles: []
-  target_pos: [20, 100]
+  target_pos: []
   source_pos: []
   sink_pos: []
   vehicles: []

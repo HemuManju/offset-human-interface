@@ -94,7 +94,7 @@ def red_team_actions(config):
         # Patrolling attributes
         if attr['uav_primitives']['primitives'][i] == 'patrolling':
             source_id = attr['uav_primitives']['patrolling_nodes'][0]
-            sink_id = attr['uav_primitives']['patrolling_nodes'][0]
+            sink_id = attr['uav_primitives']['patrolling_nodes'][1]
             actions_uav['source_pos'] = nodes[source_id]['position']
             actions_uav['sink_pos'] = nodes[sink_id]['position']
 
@@ -117,11 +117,11 @@ def red_team_actions(config):
 
         # Patrolling attributes
         if attr['ugv_primitives']['primitives'][i] == 'patrolling':
-            actions_uav['primitive'] = 'patrolling'
+            actions_ugv['primitive'] = 'patrolling'
             source_id = attr['ugv_primitives']['patrolling_nodes'][0]
-            sink_id = attr['ugv_primitives']['patrolling_nodes'][0]
-            actions_uav['source_pos'] = nodes[source_id]['position']
-            actions_uav['sink_pos'] = nodes[sink_id]['position']
+            sink_id = attr['ugv_primitives']['patrolling_nodes'][1]
+            actions_ugv['source_pos'] = nodes[source_id]['position']
+            actions_ugv['sink_pos'] = nodes[sink_id]['position']
 
         # Update the ugv action
         default_actions['ugv'][key] = actions_ugv

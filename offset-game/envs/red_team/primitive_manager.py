@@ -184,14 +184,13 @@ class PrimitiveManager(object):
             done = self.formation_primitive()
             if done:
                 self.action['initial_formation'] = False
-                self.action['target_pos'] = self.action['source_pos']
+                self.action['target_pos'] = self.action['sink_pos']
                 self.path_points = self.get_spline_points()
                 self.patrol_points = self.path_points.copy()
         else:
             self.action['centroid_pos'] = self.get_centroid()
             distance = np.linalg.norm(self.action['centroid_pos'] -
                                       self.action['sink_pos'])
-
             if len(self.patrol_points) > 2 and distance > 2:
                 self.action['next_pos'] = self.patrol_points[0]
                 self.patrol_points = np.delete(self.patrol_points, 0, 0)
@@ -199,7 +198,6 @@ class PrimitiveManager(object):
                 self.action['next_pos'] = self.action['sink_pos']
 
             self.formation_primitive()
-
             if distance < 1:
                 # swap the source and sink
                 self.action['source_pos'], self.action[
@@ -268,4 +266,3 @@ class PrimitiveManager(object):
                 self.formation_primitive()
             else:
                 self.action['execute'] = False
-
