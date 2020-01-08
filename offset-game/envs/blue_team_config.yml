@@ -1,42 +1,46 @@
 ##---------------------------------------------------------------------##
 # Simulation parameters
 uav_platoon:
-  patrol_nodes: [38, 51]
-  initial_nodes_pos: [38, 51, 37]
-  patrolling_node: [1]
+  n_vehicles: [10, 10, 10]
+  initial_nodes_pos: [11, 10, 9]
+  chase_distance: 10
 
 ugv_platoon:
-  patrol_nodes: [38, 51]
-  initial_nodes_pos: [38, 51, 37]
-  patrolling_node: [1]
-
+  n_vehicles: [7, 8, 10]
+  initial_nodes_pos: [4, 5, 6]
+  chase_distance: 10
 ##---------------------------------------------------------------------##
 # Parameter fields
+uav_primitives:
+  primitives: ['path_planning', 'formation']
+
+ugv_primitives:
+  primitives: ['path_planning', 'formation']
+##---------------------------------------------------------------------##
+# Attributes fields
 uav:
-  primitive: 'formation'
-  n_vehicles: 10
+  primitive: 'planning'
+  n_vehicles: []
   target_pos: [20, 100]
   vehicles_id: []
   vehicles_type: 'uav'
   vehicles: []
-  centroid_pos: [-10, -10]
+  centroid_pos: []
   platoon_id: 0
   initial_formation: True
   selected: False
   execute: True
-  with_in_perimeter: False
 ##---------------------------------------------------------------------##
 ugv:
   primitive: 'formation'
-  n_vehicles: 8
-  target_pos: [20, 100]
+  n_vehicles: []
+  target_pos: []
   vehicles_id: []
   vehicles_type: 'ugv'
   vehicles: []
-  centroid_pos: [-10, -10]
+  centroid_pos: []
   platoon_id: 0
   initial_formation: True
   selected: False
   execute: True
-  with_in_perimeter: False
 ##---------------------------------------------------------------------##

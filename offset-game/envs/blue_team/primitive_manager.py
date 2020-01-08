@@ -1,7 +1,9 @@
 import numpy as np
+import random
 
 from ..primitives.planning.planners import SkeletonPlanning
 from ..primitives.formation.control import FormationControl
+from ..primitives.engaging.shooting import Shooting
 
 
 class PrimitiveManager(object):
@@ -14,37 +16,32 @@ class PrimitiveManager(object):
             An instance of state manager
         """
         self.state_manager = state_manager
+        self.dt = self.state_manager.config['simulation']['time_step']
 
         # Instance of primitives
         self.planning = SkeletonPlanning(self.state_manager.config,
                                          self.state_manager.grid_map)
         self.formation = FormationControl()
+        self.shooting = Shooting()
         return None
 
-    def set_action(self, action):
-        """Set up the parameters of the premitive execution
+    def allocate_action(self, action):
+        self.action = action
+        self.key = action['vehicles_type'] + '_p_' + str(action['platoon_id'])
+        return None
 
-        Parameters
-        ----------
-        primitive_parameters : dict
-            A dictionary containing information about vehicles
-            and primitive realted parameters.
+    def execute_primitive(self):
+        """Perform primitive execution
         """
-        # Primitive parameters
-        self.dt = self.state_manager.config['simulation']['time_step']
-        self.action = action  # make a copy and use it everywhere
-        self.key = self.action['vehicles_type'] + '_p_' + str(
-            self.action['platoon_id'])
-
-        if self.action['vehicles_type'] == 'uav':
-            self.action['vehicles'] = [
-                self.state_manager.uav[j] for j in self.action['vehicles_id']
-            ]
-        else:
-            self.action['vehicles'] = [
-                self.state_manager.ugv[j] for j in self.action['vehicles_id']
-            ]
-        return None
+        done = False
+        primitives = {
+            'planning': self.planning_primitive,
+            'formation': self.formation_primitive,
+            'shooting': self.shooting_primitive
+        }
+        if self.action['execute']:
+            done = primitives[self.action['primitive']]()
+        return done
 
     def make_vehicles_idle(self):
         """Make the vehicles idle
@@ -113,31 +110,19 @@ class PrimitiveManager(object):
             self.convert_pixel_ordinate(point, ispixel=True) for point in path
         ]
         # As of now don't fit any splines
-        new_points = np.array(points).T
-        return new_points, points
-
-    def primitive_parameters(self):
-        return self.__dict__['action']['centroid_pos']
-
-    def execute_primitive(self):
-        """Perform primitive execution
-        """
-        done = False
-        primitives = {
-            'planning': self.planning_primitive,
-            'formation': self.formation_primitive
-        }
-        self.primitive_parameters()
-        if self.action['n_vehicles'] > 1:
-            done = primitives[self.action['primitive']]()
-        return done
+        if self.action['vehicles_type'] == 'uav':
+            path_points = np.array(points[-1])
+        else:
+            path_points = np.array(points)
+            path_points = path_points[0:-1:1, :]
+        return path_points, points
 
     def planning_primitive(self):
         """Performs path planning primitive
         """
         # Make vehicles non idle
         done_rolling = False
-        self.make_vehicles_nonidle()
+        # self.make_vehicles_nonidle()
 
         # Initial formation
         if self.action['initial_formation']:
@@ -146,16 +131,17 @@ class PrimitiveManager(object):
             self.action['next_pos'] = self.action['centroid_pos']
             done = self.formation_primitive()
             if done:
+
                 self.action['initial_formation'] = False
-                self.new_points, points = self.get_spline_points()
+                self.path_points, points = self.get_spline_points()
         else:
             self.action['centroid_pos'] = self.get_centroid()
             distance = np.linalg.norm(self.action['centroid_pos'] -
                                       self.action['target_pos'])
 
-            if len(self.new_points) > 2 and distance > 2:
-                self.action['next_pos'] = self.new_points[0]
-                self.new_points = np.delete(self.new_points, 0, 0)
+            if len(self.path_points) > 2 and distance > 2:
+                self.action['next_pos'] = self.path_points[0]
+                self.path_points = np.delete(self.path_points, 0, 0)
             else:
                 self.action['next_pos'] = self.action['target_pos']
             self.formation_primitive()
@@ -171,11 +157,45 @@ class PrimitiveManager(object):
         """
         if self.action['primitive'] == 'formation':
             self.action['centroid_pos'] = self.get_centroid()
-            self.action['next_pos'] = self.action['target_pos']
+            self.action['next_pos'] = self.get_centroid()
 
         self.action['vehicles'], done_rolling = self.formation.execute(
             self.action['vehicles'], self.action['next_pos'],
             self.action['centroid_pos'], self.dt, 'solid')
+
         for vehicle in self.action['vehicles']:
             vehicle.set_position(vehicle.updated_pos)
         return done_rolling
+
+    def shooting_primitive(self):
+        """Perform shooting primitive
+        """
+
+        # First point of formation
+        self.action['centroid_pos'] = self.get_centroid()
+        self.action['next_pos'] = self.action['centroid_pos']
+
+        n_blue_team = self.action['n_blue_team']
+        n_red_team = self.action['n_red_team']
+        distance = self.action['distance']
+
+        p = self.shooting.shoot(n_blue_team, n_red_team, distance, type='blue')
+
+        if p > 0.95 and random.random() > 0.95:
+            # Remove 10% of the drones
+            n_vehicles = len(self.action['vehicles'])
+            n_remove = int(np.ceil(0.1 * n_vehicles))
+            if n_vehicles > 2:
+                # Sort is needed to remove the highest index first
+                ids_to_remove = random.choices(range(n_vehicles), k=n_remove)
+                ids_to_remove.sort(reverse=True)
+                for idx in ids_to_remove:
+                    self.action['vehicles'][idx].remove_self()
+                    self.action['vehicles'][idx].functional = False
+                    self.action['vehicles'].pop(idx)
+
+                # Perform formation control
+                self.formation_primitive()
+            else:
+                self.action['execute'] = False
+

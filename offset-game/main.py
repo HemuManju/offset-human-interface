@@ -1,7 +1,6 @@
 import yaml
 from pathlib import Path
 import time
-import collections
 
 import ray
 
@@ -9,6 +8,7 @@ from lsl.stream_data import states_packets
 from server.parameters import ParameterServer
 from gui.main import MainGUI
 from envs.benning_env import BenningEnv
+from envs.default_actions import blue_team_actions, red_team_actions
 
 from utils import skip_run
 
@@ -70,28 +70,12 @@ with skip_run('skip', 'Complexity Test') as check, check():
     ray.shutdown()
 
 with skip_run('run', 'Test New Framework') as check, check():
-    read_path = Path(__file__).parents[0] / 'test.yml'
-    parameters = yaml.load(open(str(read_path)), Loader=yaml.SafeLoader)
 
-    actions_uav = collections.defaultdict(dict)
-    actions_ugv = collections.defaultdict(dict)
-    actions_uav_b = collections.defaultdict(dict)
-    actions_ugv_b = collections.defaultdict(dict)
-
-    for i in range(config['simulation']['n_uav_platoons']):
-        uav_parameters = parameters['uav'].copy()
-        key = 'uav_p_' + str(i + 1)
-        uav_parameters['platoon_id'] = i + 1
-        actions_uav[key] = uav_parameters
-        actions_uav_b[key] = uav_parameters.copy()  # Strange
-
-    # Setup the uav platoons
-    for i in range(config['simulation']['n_ugv_platoons']):
-        ugv_parameters = parameters['ugv'].copy()
-        key = 'ugv_p_' + str(i + 1)
-        ugv_parameters['platoon_id'] = i + 1
-        actions_ugv[key] = ugv_parameters
-        actions_ugv_b[key] = ugv_parameters.copy()
+    blue_actions = blue_team_actions(config)
+    red_actions = red_team_actions(config)
 
     env = BenningEnv(config)
-    env.step(actions_uav, actions_ugv)
+    t = time.time()
+    env.step(blue_actions['uav'], blue_actions['ugv'], red_actions['uav'],
+             red_actions['ugv'])
+    print(time.time() - t)

@@ -2,7 +2,7 @@
 # Parameter fields
 uav:
   primitive: 'planning'
-  n_vehicles: 25
+  n_vehicles: 2
   target_pos: [20, 100]
   vehicles_id: []
   vehicles_type: 'uav'
@@ -16,8 +16,10 @@ uav:
 ##---------------------------------------------------------------------##
 ugv:
   primitive: 'planning'
-  n_vehicles: 8
+  n_vehicles: 0
   target_pos: [20, 100]
+  source_pos: [20, 80]
+  sink_pos: [20, 100]
   vehicles_id: []
   vehicles_type: 'ugv'
   vehicles: []

@@ -1,8 +1,11 @@
 import numpy as np
 from scipy import spatial
 
+import pyximport
+pyximport.install()
 
-class FormationControl():
+
+class FormationControl(object):
     """ Formation control primitive using region based shape control.
     Coded by: Apurvakumar Jani, Date: 18/9/2019
     """
@@ -10,34 +13,41 @@ class FormationControl():
         # Initialise the parameters
         return None
 
-    def get_vel(self, j, curr_pos, min_dis, centroid_pos, alpha, gamma,
-                path_vel, vel_max, a, b, knn, formation_type):
+    def calculate_vel(self, vehicle, dt, distance_tree, all_drones_pos,
+                      min_dis, centroid_pos, alpha, gamma, path_vel, vmax, a,
+                      b, knn, formation_type):
 
-        # Calculate pairwise distance
-        curr_loc = curr_pos[j, :]
-        if len(curr_pos) < 6:
-            knn = len(curr_pos)
-        peers_pos = curr_pos[spatial.KDTree(curr_pos).query(curr_loc, k=knn
-                                                            )[1], :]
+        # Get the neighboor position
+        curr_pos = vehicle.current_pos[0:2]
+        if len(all_drones_pos) < 6:
+            knn = len(all_drones_pos)
+        peers_pos = all_drones_pos[distance_tree.query(curr_pos, k=knn)[1], :]
 
         # Calculate the velocity of each neighboor particle
-        k = 1 / len(peers_pos)  # constant
+        k = 1 / knn  # constant
         g_lij = (min_dis**2) - np.linalg.norm(
-            curr_loc - peers_pos, axis=1, ord=2)
-        del_g_ij = 2 * (peers_pos - curr_loc)
-        temp = np.maximum(0, g_lij / (min_dis**2))**2
-        P_ij = k * np.dot(temp, del_g_ij)
-
-        temp = (curr_loc - centroid_pos) / np.array([a, b])
-        f_g_ij = np.linalg.norm(temp, ord=2) - 1
+            curr_pos - peers_pos, axis=1, ord=2)
+        del_g_ij = 2 * (peers_pos - curr_pos)
+        P_ij = k * np.dot(np.maximum(0, g_lij / (min_dis**2))**2, del_g_ij)
+        f_g_ij = np.linalg.norm(
+            (curr_pos - centroid_pos) / np.array([a, b]), ord=2) - 1
 
         # Calculate path velocity
         kl = 1  # constant
-        del_f_g_ij = 1 * (curr_loc - centroid_pos)
+        del_f_g_ij = 1 * (curr_pos - centroid_pos)
         del_zeta_ij = (kl * max(0, f_g_ij)) * del_f_g_ij
         vel = path_vel - (alpha * del_zeta_ij) - (gamma * P_ij)
 
-        return vel
+        # Calculate the speed
+        speed = np.linalg.norm(vel)
+        # Normalize the velocity with respect to speed
+        if speed > vmax:
+            vel = (vel / speed) * vmax
+
+        # New position
+        vehicle.updated_pos[0:2] = vehicle.current_pos[0:2] + (vel) * dt
+
+        return vehicle, speed
 
     def getFeasibleSpeed(self, vel, vel_max):
         """This function limit the velocity returned
@@ -79,41 +89,28 @@ class FormationControl():
         gamma = 0.5
         min_dis = 2
 
-        all_drones_pose = np.zeros((len(vehicles), 2))
-        for i, vehicle in enumerate(vehicles):
-            all_drones_pose[i] = vehicle.current_pos[0:2]
+        all_drones_pos = np.asarray(
+            [vehicle.current_pos[0:2] for vehicle in vehicles])
 
-        vel_combined = []
-        for j, vehicle in enumerate(vehicles):
-            path = np.array([next_pos[0], next_pos[1]]) - centroid_pos
-            path_vel = (1 / dt) * path
+        # Construct a tree for distance query
+        distance_tree = spatial.KDTree(all_drones_pos)
 
-            if np.linalg.norm(path_vel) > vmax:
-                path_vel = (path_vel / np.linalg.norm(path_vel)) * vmax
+        # Path velocity
+        path = np.array([next_pos[0], next_pos[1]]) - centroid_pos
+        path_vel = (1 / dt) * path
+        if np.linalg.norm(path_vel) > vmax:
+            path_vel = (path_vel / np.linalg.norm(path_vel)) * vmax
 
-            vel = self.get_vel(j, all_drones_pose, min_dis, centroid_pos,
-                               alpha, gamma, path_vel * 0, vmax, a, b, knn,
-                               formation_type)
-            # Normalize the velocity
-            if np.linalg.norm(vel) > vmax:
-                vel = (vel / np.linalg.norm(vel)) * vmax
-            vel_combined.append(vel)
-
-            # New position
-            new_pos = np.zeros(3)
-            new_pos[0:2] = vehicle.current_pos[0:2] + (path_vel + vel) * dt
-
-            # Update position
-            if vehicle.type == 'uav':
-                new_pos[2] = 8.5
-                vehicle.updated_pos = new_pos
-            else:
-                new_pos[2] = 0.5
-                vehicle.updated_pos = new_pos
-
-        vel_combined = np.linalg.norm(np.array(vel_combined), axis=1)
-
-        if np.max(vel_combined) < 0.015 * len(all_drones_pose):
+        # Loop over each drone to calculate the velocity
+        vehicles, speed = map(
+            list,
+            zip(*[
+                self.calculate_vel(vehicle, dt, distance_tree, all_drones_pos,
+                                   min_dis, centroid_pos, alpha, gamma,
+                                   path_vel, vmax, a, b, knn, formation_type)
+                for vehicle in vehicles
+            ]))
+        if np.max(speed) < 0.015 * len(all_drones_pos):
             formation_done = True
         else:
             formation_done = False

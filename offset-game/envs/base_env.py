@@ -25,8 +25,12 @@ class BaseEnv(object):
 
         # Set parameters for simulation
         self.p.setPhysicsEngineParameter(
-            fixedTimeStep=config['simulation']['time_step'], numSubSteps=1)
+            fixedTimeStep=config['simulation']['time_step'] / 10,
+            numSubSteps=1,
+            numSolverIterations=5)
         # self.p.setRealTimeSimulation(1)
+
+        self.p.configureDebugVisualizer(self.p.COV_ENABLE_GUI, 0)
 
         # Setup ground
         plane = self.p.loadURDF("plane.urdf", [0, 0, 0],
