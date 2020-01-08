@@ -1,4 +1,5 @@
 from scipy.spatial.distance import cdist
+from sklearn.metrics import pairwise_distances_argmin_min
 
 import numpy as np
 
@@ -34,14 +35,16 @@ def check_perimeter(blue_team_pos, red_team_pos, config):
     distance = cdist(blue_team_pos, red_team_pos)
     threshold = config['experiment']['perimeter_distance']
     indices = np.argwhere(distance < threshold)
-    with_in_perimeter = {}
+
+    with_in_perimeter = []
     for index in indices:
-        if index[0] <= 2:
-            red_team_key = 'uav_p_' + str(index[0] % 3 + 1)
-            blue_team_key = 'uav_p_' + str(index[1] % 3 + 1)
-            with_in_perimeter[red_team_key] = blue_team_key
-        else:
-            red_team_key = 'ugv_p_' + str(index[0] % 3 + 1)
-            blue_team_key = 'ugv_p_' + str(index[1] % 3 + 1)
-            with_in_perimeter[red_team_key] = blue_team_key
+        blue_key = 'uav_p_' if index[0] <= 2 else 'ugv_p_'
+        red_key = 'uav_p_' if index[1] <= 2 else 'ugv_p_'
+
+        # Get the key
+        blue_team_key = blue_key + str(index[0] % 3 + 1)
+        red_team_key = red_key + str(index[1] % 3 + 1)
+
+        # Update the dictionary
+        with_in_perimeter.append([blue_team_key, red_team_key])
     return with_in_perimeter

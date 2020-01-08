@@ -1,16 +1,14 @@
-from .primitive_manager import PrimitiveManager
-
 
 class ActionManager(object):
-    def __init__(self, state_manager):
+    def __init__(self, state_manager, PrimitiveManager):
         self.state_manager = state_manager
         self.config = state_manager.config
 
         # Setup the platoons
-        self._init_platoons_setup()
+        self._init_platoons_setup(PrimitiveManager)
         return None
 
-    def _init_platoons_setup(self):
+    def _init_platoons_setup(self, PrimitiveManager):
         """Initial setup of platoons with primitive execution class.
             Each platoon name is given as uxv_p_* where * is the platoon number
             and x is either 'a' or 'g' depending on platoon type.
@@ -103,6 +101,7 @@ class ActionManager(object):
                 if ugv.idle and ugv.functional:
                     vehicles.append(ugv)
                     vehicles_id.append(ugv.vehicle_id)
+                    ugv.idle = False # Once allocated they are non-idles
 
                 if len(vehicles) == n_vehicles:
                     break

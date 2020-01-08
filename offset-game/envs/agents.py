@@ -32,10 +32,10 @@ class UgV(object):
         self.reward = 0
 
         self.sensors = Sensors(pb)
-        self._initial_setup()
+        self._initial_setup(team_type)
         return None
 
-    def _initial_setup(self):
+    def _initial_setup(self, team_type):
         """Initial step of objects and constraints
         """
         if self.config['simulation']['collision_free']:
@@ -45,6 +45,9 @@ class UgV(object):
             path = Path(__file__).parents[0] / 'urdf/ground_vehicle.urdf'
         self.object = self.p.loadURDF(str(path), self.init_pos,
                                       self.init_orientation)
+        if team_type == 'blue':  # Change the color
+            self.p.changeVisualShape(self.object, -1, rgbaColor=[0, 0, 1, 1])
+
         self.constraint = self.p.createConstraint(self.object, -1, -1, -1,
                                                   self.p.JOINT_FIXED,
                                                   [0, 0, 0], [0, 0, 0],
@@ -113,9 +116,12 @@ class UgV(object):
         """
         pos, _ = self.get_pos_and_orientation()
         self.current_pos = pos
-        position[2] = 0.5  # Near ground
+        position[2] = 1.0  # Near ground
         self.p.changeConstraint(self.constraint, position)
         return None
+
+    def remove_self(self):
+        self.p.removeBody(self.object)
 
 
 class UaV(object):
@@ -144,10 +150,10 @@ class UaV(object):
         self.reward = 0
 
         self.sensors = Sensors(pb)
-        self._initial_setup()
+        self._initial_setup(team_type)
         return None
 
-    def _initial_setup(self):
+    def _initial_setup(self, team_type):
         """Initial step of objects and constraints
         """
         if self.config['simulation']['collision_free']:
@@ -157,6 +163,9 @@ class UaV(object):
             path = Path(__file__).parents[0] / 'urdf/arial_vehicle.urdf'
         self.object = self.p.loadURDF(str(path), self.init_pos,
                                       self.init_orientation)
+        if team_type == 'blue':  # Change the color
+            self.p.changeVisualShape(self.object, -1, rgbaColor=[0, 0, 1, 1])
+
         self.constraint = self.p.createConstraint(self.object, -1, -1, -1,
                                                   self.p.JOINT_FIXED,
                                                   [0, 0, 0], [0, 0, 0],
@@ -226,5 +235,7 @@ class UaV(object):
         self.current_pos = pos
         position[2] = 9.5
         self.p.changeConstraint(self.constraint, position)
-
         return None
+
+    def remove_self(self):
+        self.p.removeBody(self.object)

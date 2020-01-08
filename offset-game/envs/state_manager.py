@@ -3,10 +3,10 @@ from numpy import genfromtxt
 
 
 class StateManager():
-    def __init__(self, uav, ugv, current_time, config):
+    def __init__(self, current_time, config):
+        super(StateManager, self).__init__()
         # Need to specify some parameters
-        self.uav = uav
-        self.ugv = ugv
+
         self.current_time = current_time
         self.config = config
         self.found_goal = False
@@ -16,7 +16,11 @@ class StateManager():
         self._initial_nodes_setup()
         self._initial_buildings_setup()
         self._initial_target_setup()
+        return None
 
+    def _initial_uxv(self, uav, ugv):
+        self.uav = uav
+        self.ugv = ugv
         return None
 
     def _initial_mission_setup(self):

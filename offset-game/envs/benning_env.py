@@ -2,7 +2,6 @@ import time
 import math
 from pathlib import Path
 
-from .agents import UaV, UgV
 from .base_env import BaseEnv
 
 from .blue_team.blue_base import BlueTeam
@@ -30,14 +29,9 @@ class BenningEnv(BaseEnv):
                         ]),
                         flags=self.p.URDF_USE_MATERIAL_COLORS_FROM_MTL,
                         useFixedBase=True)
-        # self.p.loadURDF(str(path), [58.487, 23.655, 0.1],
-        #                 self.p.getQuaternionFromEuler([0, 0, math.pi / 2]),
-        #                 useFixedBase=True)
 
         # Initial step of blue and red team
         self._initial_team_setup()
-
-        self.images = []
 
         # Initialize interaction manager
         self.interaction_manager = InteractionManager(config)
@@ -45,38 +39,11 @@ class BenningEnv(BaseEnv):
 
     def _initial_team_setup(self):
         # Red team
-        uav_red, ugv_red = self._initial_uxv_setup(team_type='red')
-        self.red_team = RedTeam(self.config, uav_red, ugv_red)
+        self.red_team = RedTeam(self.p, self.config)
 
-        # # Blue team
-        uav_blue, ugv_blue = self._initial_uxv_setup(team_type='blue')
-        self.blue_team = BlueTeam(self.config, uav_blue, ugv_blue)
+        # Blue team
+        self.blue_team = BlueTeam(self.p, self.config)
         return None
-
-    def _initial_uxv_setup(self, team_type):
-        # Number of UGV and UAV
-        self.n_ugv = self.config['simulation']['n_ugv']
-        self.n_uav = self.config['simulation']['n_uav']
-
-        ugv, uav = [], []
-        test = []
-        # Initialise the UGV and UAV
-        init_orientation = self.p.getQuaternionFromEuler([math.pi / 2, 0, 0])
-        for i, item in enumerate(range(self.n_ugv)):
-            position = self.base_env_get_initial_position(item, self.n_ugv)
-            init_pos = [position[0] * 0.25 + 2.5, position[1] * 0.25, 5]
-            test.append(init_pos)
-            ugv.append(
-                UgV(self.p, init_pos, init_orientation, i, self.config,
-                    team_type))
-
-        for i, item in enumerate(range(self.n_uav)):
-            position = self.base_env_get_initial_position(item, self.n_uav)
-            init_pos = [position[0] * 0.25 + 2.5, position[1] * 0.25 - 1.5, 5]
-            uav.append(
-                UaV(self.p, init_pos, init_orientation, i, self.config,
-                    team_type))
-        return uav, ugv
 
     def reset(self):
         for i in range(50):
@@ -100,27 +67,24 @@ class BenningEnv(BaseEnv):
 
         # Run the simulation
         while not done_rolling_actions and current_time <= duration:
-
             simulation_count += 1
             current_time = time.time() - start_time
-
-            # Interaction Manager (this over-rides the given actions)
-            self.interaction_manager.update_actions(self.blue_team,
-                                                    self.red_team)
 
             # Run the blue team (these can be made parallel)
             self.blue_team.execute()
 
-            image = self.red_team.action_manager.get_image(1, 'uav', 0, 'all')
-            self.images.append(image)
+            # image = self.red_team.action_manager.get_image(1, 'uav', 0,'all')
+            # self.images.append(image)
 
             # Run the red team (these can be made parallel)
             self.red_team.execute()
 
+            # # Interaction Manager (this over-rides the given actions)
+            self.interaction_manager.update_actions(self.blue_team,
+                                                    self.red_team)
+
             # Perform a step in simulation to update
             self.base_env_step()
-            # print(time.time() - t)
-            # print('--------------')
 
     def get_reward(self):
         """Update reward of all the agents

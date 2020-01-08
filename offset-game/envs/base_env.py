@@ -30,6 +30,8 @@ class BaseEnv(object):
             numSolverIterations=5)
         # self.p.setRealTimeSimulation(1)
 
+        self.p.configureDebugVisualizer(self.p.COV_ENABLE_GUI, 0)
+
         # Setup ground
         plane = self.p.loadURDF("plane.urdf", [0, 0, 0],
                                 self.p.getQuaternionFromEuler(

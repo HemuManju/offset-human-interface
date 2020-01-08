@@ -1,7 +1,9 @@
 import numpy as np
+import random
 
 from ..primitives.planning.planners import SkeletonPlanning
 from ..primitives.formation.control import FormationControl
+from ..primitives.engaging.shooting import Shooting
 
 
 class PrimitiveManager(object):
@@ -20,6 +22,7 @@ class PrimitiveManager(object):
         self.planning = SkeletonPlanning(self.state_manager.config,
                                          self.state_manager.grid_map)
         self.formation = FormationControl()
+        self.shooting = Shooting()
         return None
 
     def allocate_action(self, action):
@@ -111,7 +114,7 @@ class PrimitiveManager(object):
             path_points = np.array(points[-1])
         else:
             path_points = np.array(points)
-            path_points = path_points[0:-1:2, :]
+            path_points = path_points[0:-1:1, :]
         return path_points, points
 
     def planning_primitive(self):
@@ -128,6 +131,7 @@ class PrimitiveManager(object):
             self.action['next_pos'] = self.action['centroid_pos']
             done = self.formation_primitive()
             if done:
+
                 self.action['initial_formation'] = False
                 self.path_points, points = self.get_spline_points()
         else:
@@ -153,7 +157,7 @@ class PrimitiveManager(object):
         """
         if self.action['primitive'] == 'formation':
             self.action['centroid_pos'] = self.get_centroid()
-            self.action['next_pos'] = self.action['target_pos']
+            self.action['next_pos'] = self.get_centroid()
 
         self.action['vehicles'], done_rolling = self.formation.execute(
             self.action['vehicles'], self.action['next_pos'],
@@ -171,7 +175,27 @@ class PrimitiveManager(object):
         self.action['centroid_pos'] = self.get_centroid()
         self.action['next_pos'] = self.action['centroid_pos']
 
-        # TODO: A function to indicate how much drones are lost
+        n_blue_team = self.action['n_blue_team']
+        n_red_team = self.action['n_red_team']
+        distance = self.action['distance']
 
-        # Perform formation control
-        self.formation_primitive()
+        p = self.shooting.shoot(n_blue_team, n_red_team, distance, type='blue')
+
+        if p > 0.95 and random.random() > 0.95:
+            # Remove 10% of the drones
+            n_vehicles = len(self.action['vehicles'])
+            n_remove = int(np.ceil(0.1 * n_vehicles))
+            if n_vehicles > 2:
+                # Sort is needed to remove the highest index first
+                ids_to_remove = random.choices(range(n_vehicles), k=n_remove)
+                ids_to_remove.sort(reverse=True)
+                for idx in ids_to_remove:
+                    self.action['vehicles'][idx].remove_self()
+                    self.action['vehicles'][idx].functional = False
+                    self.action['vehicles'].pop(idx)
+
+                # Perform formation control
+                self.formation_primitive()
+            else:
+                self.action['execute'] = False
+

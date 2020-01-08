@@ -2,8 +2,27 @@ import yaml
 from pathlib import Path
 import collections
 
+from numpy import genfromtxt
 
-def blue_team_actions(state_manager, config):
+
+def initial_nodes_setup(config):
+    """Performs initial nodes setup
+    """
+    # Nodes setup
+    nodes = []
+    path = config['map_data_path'] + 'nodes.csv'
+    position_data = genfromtxt(path, delimiter=',')
+    for i in range(config['simulation']['n_nodes']):
+        info = {}
+        info['position'] = [
+            position_data[i][1] * 1.125, position_data[i][0] / 1.125
+        ]
+        info['importance'] = 0
+        nodes.append(info)
+    return nodes
+
+
+def blue_team_actions(config):
     # Variables
     default_actions = collections.defaultdict(dict)
 
@@ -23,12 +42,7 @@ def blue_team_actions(state_manager, config):
         n_vehicles = actions_uav['n_vehicles']
         vehicles_id = list(range(ids, ids + n_vehicles))
         ids = ids + n_vehicles
-        actions_uav[key]['vehicles_id'] = vehicles_id
-
-        # Get the node position
-        node_id = attr['uav_platoon']['initial_nodes_pos'][i]
-        node_info = state_manager.node_info(node_id)
-        actions_uav['target_pos'] = node_info['position']
+        actions_uav['vehicles_id'] = vehicles_id
 
         # Update the uav action
         default_actions['uav'][key] = actions_uav
@@ -45,25 +59,23 @@ def blue_team_actions(state_manager, config):
         n_vehicles = actions_ugv['n_vehicles']
         vehicles_id = list(range(ids, ids + n_vehicles))
         ids = ids + n_vehicles
-        actions_ugv[key]['vehicles_id'] = vehicles_id
-
-        # Get the node position
-        node_id = attr['uav_platoon']['initial_nodes_pos'][i]
-        node_info = state_manager.node_info(node_id)
-        actions_uav['target_pos'] = node_info['position']
+        actions_ugv['vehicles_id'] = vehicles_id
 
         # Update the ugv action
         default_actions['ugv'][key] = actions_ugv
     return default_actions
 
 
-def red_team_actions(state_manager, config):
+def red_team_actions(config):
     # Variables
     default_actions = collections.defaultdict(dict)
 
     # Read fields for all the platoons
     read_path = Path(__file__).parents[0] / 'red_team_config.yml'
     attr = yaml.load(open(str(read_path)), Loader=yaml.SafeLoader)
+
+    # Get information about nodes
+    nodes = initial_nodes_setup(config)
 
     # Setup the uav platoons
     ids = 0
@@ -77,12 +89,14 @@ def red_team_actions(state_manager, config):
         n_vehicles = actions_uav['n_vehicles']
         vehicles_id = list(range(ids, ids + n_vehicles))
         ids = ids + n_vehicles
-        actions_uav[key]['vehicles_id'] = vehicles_id
+        actions_uav['vehicles_id'] = vehicles_id
 
-        # Get the node position
-        node_id = attr['uav_platoon']['initial_nodes_pos'][i]
-        node_info = state_manager.node_info(node_id)
-        actions_uav['target_pos'] = node_info['position']
+        # Patrolling attributes
+        if attr['uav_primitives']['primitives'][i] == 'patrolling':
+            source_id = attr['uav_primitives']['patrolling_nodes'][0]
+            sink_id = attr['uav_primitives']['patrolling_nodes'][0]
+            actions_uav['source_pos'] = nodes[source_id]['position']
+            actions_uav['sink_pos'] = nodes[sink_id]['position']
 
         # Update the uav action
         default_actions['uav'][key] = actions_uav
@@ -99,12 +113,15 @@ def red_team_actions(state_manager, config):
         n_vehicles = actions_ugv['n_vehicles']
         vehicles_id = list(range(ids, ids + n_vehicles))
         ids = ids + n_vehicles
-        actions_ugv[key]['vehicles_id'] = vehicles_id
+        actions_ugv['vehicles_id'] = vehicles_id
 
-        # Get the node position
-        node_id = attr['uav_platoon']['initial_nodes_pos'][i]
-        node_info = state_manager.node_info(node_id)
-        actions_uav['target_pos'] = node_info['position']
+        # Patrolling attributes
+        if attr['ugv_primitives']['primitives'][i] == 'patrolling':
+            actions_uav['primitive'] = 'patrolling'
+            source_id = attr['ugv_primitives']['patrolling_nodes'][0]
+            sink_id = attr['ugv_primitives']['patrolling_nodes'][0]
+            actions_uav['source_pos'] = nodes[source_id]['position']
+            actions_uav['sink_pos'] = nodes[sink_id]['position']
 
         # Update the ugv action
         default_actions['ugv'][key] = actions_ugv

@@ -1,6 +1,9 @@
 import numpy as np
 from scipy import spatial
 
+import pyximport
+pyximport.install()
+
 
 class FormationControl(object):
     """ Formation control primitive using region based shape control.
@@ -107,7 +110,7 @@ class FormationControl(object):
                                    path_vel, vmax, a, b, knn, formation_type)
                 for vehicle in vehicles
             ]))
-        if max(speed) < 0.015 * len(all_drones_pos):
+        if np.max(speed) < 0.015 * len(all_drones_pos):
             formation_done = True
         else:
             formation_done = False
