@@ -2,8 +2,6 @@ import time
 import math
 from pathlib import Path
 
-import ray
-
 from .base_env import BaseEnv
 
 from .default_actions import blue_team_actions, red_team_actions
@@ -14,7 +12,6 @@ from .red_team.red_base import RedTeam
 from .interaction_manager import InteractionManager
 
 
-@ray.remote
 class BenningEnv(BaseEnv):
     def __init__(self, config):
         # Initialise the base environment

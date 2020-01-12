@@ -8,6 +8,7 @@ from lsl.stream_data import states_packets
 from server.parameters import ParameterServer
 from gui.main import MainGUI
 from envs.benning_env import BenningEnv
+from envs.default_actions import blue_team_actions, red_team_actions
 
 from utils import skip_run
 
@@ -69,25 +70,12 @@ with skip_run('skip', 'Complexity Test') as check, check():
     ray.shutdown()
 
 with skip_run('run', 'Test New Framework') as check, check():
-    # Initiate ray
-    if not ray.is_initialized():
-        ray.init(num_cpus=4)
 
-    # Instantiate parameter server
-    ps = ParameterServer.remote(config)
+    # Get default actions
+    blue_actions = blue_team_actions(config)
+    red_actions = red_team_actions(config)
 
     # Instantiate environment
-    env = BenningEnv.remote(config)
-
-    # # Instantiate GUI
-    # gui = MainGUI.remote(config, (1500, 750), ps)
-
-    # Get the remote IDs of simulations
-    # gui_run_id = gui.run.remote(ps)
-    env_run_id = env.main_loop.remote()
-
-    # Run the simulation
-    ray.wait([env_run_id])
-
-    # Shutdown ray
-    ray.shutdown()
+    env = BenningEnv(config)
+    env.step(blue_actions['uav'], blue_actions['ugv'], red_actions['uav'],
+             red_actions['ugv'])

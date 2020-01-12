@@ -23,7 +23,7 @@ simulation:
 ##---------------------------------------------------------------------##
 experiment:
   duration: 600
-  step_frames: 10
+  step_frames: 10000
   perimeter_distance: 20
 ##---------------------------------------------------------------------##
 # UAV and UGV parameters
