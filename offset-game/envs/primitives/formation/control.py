@@ -1,9 +1,6 @@
 import numpy as np
 from scipy import spatial
 
-import pyximport
-pyximport.install()
-
 
 class FormationControl(object):
     """ Formation control primitive using region based shape control.
@@ -67,6 +64,11 @@ class FormationControl(object):
 
         return vel
 
+    def get_parameters(self, n_vehicles):
+        a = np.ceil(n_vehicles / 3)
+        b = a
+        return a, b
+
     def execute(self, vehicles, next_pos, centroid_pos, dt, formation_type):
         """Get the position of the formation control
 
@@ -81,8 +83,7 @@ class FormationControl(object):
         """
 
         # Parameters
-        a = 3
-        b = 3
+        a, b = self.get_parameters(len(vehicles))
         knn = 6
         vmax = vehicles[0].speed
         alpha = 0.5

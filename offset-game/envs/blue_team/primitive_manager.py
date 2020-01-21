@@ -1,6 +1,8 @@
 import numpy as np
 import random
 
+import ray
+
 from ..primitives.planning.planners import SkeletonPlanning
 from ..primitives.formation.control import FormationControl
 from ..primitives.engaging.shooting import Shooting
@@ -25,12 +27,28 @@ class PrimitiveManager(object):
         self.shooting = Shooting()
         return None
 
+    def updated_vehicles_state(self):
+        # Allocate vehicles
+        self.vehicles = []
+        if self.action['vehicles_type'] == 'uav':
+            for j in self.action['vehicles_id']:
+                vehicle = self.state_manager.uav[j]
+                if vehicle.functional:
+                    self.vehicles.append(vehicle)
+        else:
+            for j in self.action['vehicles_id']:
+                vehicle = self.state_manager.ugv[j]
+                if vehicle.functional:
+                    self.vehicles.append(vehicle)
+        return None
+
     def allocate_action(self, action):
         self.action = action
         self.key = action['vehicles_type'] + '_p_' + str(action['platoon_id'])
+        self.updated_vehicles_state()
         return None
 
-    def execute_primitive(self):
+    def execute_primitive(self, pb, ps):
         """Perform primitive execution
         """
         done = False
@@ -39,15 +57,42 @@ class PrimitiveManager(object):
             'formation': self.formation_primitive,
             'shooting': self.shooting_primitive
         }
-        if self.action['execute']:
+
+        # Get the latest actions
+        actions = ray.get(ps.get_action.remote())
+        key = self.action['vehicles_type'] + '_p_' + str(
+            self.action['platoon_id'])
+        self.action = actions[self.action['vehicles_type']][key]
+
+        # Get the required vehicles state
+        self.updated_vehicles_state()
+
+        game_state = ray.get(ps.get_game_state.remote())
+
+        if self.action['execute'] and not game_state['pause']:
             done = primitives[self.action['primitive']]()
+            # Step the simulation
+            pb.stepSimulation()
+
+            # Set the actions and states
+            self.action['centroid_pos'] = self.get_centroid()
+            ps.set_action.remote(self.action)
+
+            # Pickled object cannot connect to bullet.
+            # That is why using the state variable
+
+            # Set the states
+            self.state = self.action
+            self.state['vehicles'] = self.vehicles
+            ps.set_state.remote(self.state)
+
         return done
 
     def get_centroid(self):
         """Get the centroid of the vehicles
         """
         centroid = []
-        for vehicle in self.action['vehicles']:
+        for vehicle in self.vehicles:
             centroid.append(vehicle.current_pos)
         centroid = np.mean(np.asarray(centroid), axis=0)
         return centroid[0:2]  # only x and y
@@ -100,6 +145,7 @@ class PrimitiveManager(object):
             path_points = np.array(points[-1])
         else:
             path_points = np.array(points)
+            path_points = path_points[0::4, :]
         return path_points, points
 
     def planning_primitive(self):
@@ -142,11 +188,11 @@ class PrimitiveManager(object):
             self.action['centroid_pos'] = self.get_centroid()
             self.action['next_pos'] = self.get_centroid()
 
-        self.action['vehicles'], done_rolling = self.formation.execute(
-            self.action['vehicles'], self.action['next_pos'],
+        self.vehicles, done_rolling = self.formation.execute(
+            self.vehicles, self.action['next_pos'],
             self.action['centroid_pos'], self.dt, 'solid')
 
-        for vehicle in self.action['vehicles']:
+        for vehicle in self.vehicles:
             vehicle.set_position(vehicle.updated_pos)
         return done_rolling
 
@@ -164,18 +210,25 @@ class PrimitiveManager(object):
 
         p = self.shooting.shoot(n_blue_team, n_red_team, distance, type='blue')
 
-        if p > 0.95 and random.random() > 0.95:
+        if p > 0.95 and random.random() > 0.90:
             # Remove 10% of the drones
-            n_vehicles = len(self.action['vehicles'])
+            n_vehicles = len(self.action['vehicles_id'])
             n_remove = int(np.ceil(0.1 * n_vehicles))
             if n_vehicles > 2:
                 # Sort is needed to remove the highest index first
-                ids_to_remove = random.choices(range(n_vehicles), k=n_remove)
+                ids_to_remove = random.choices(range(n_vehicles - 1),
+                                               k=n_remove)
                 ids_to_remove.sort(reverse=True)
                 for idx in ids_to_remove:
-                    self.action['vehicles'][idx].remove_self()
-                    self.action['vehicles'][idx].functional = False
-                    self.action['vehicles'].pop(idx)
+                    self.vehicles[idx].remove_self()
+                    self.vehicles[idx].functional = False
+                    self.vehicles.pop(idx)
+
+                    # Update the action also
+                    self.action['vehicles_id'].pop(idx)
+
+                    # Update number of casualities
+                    self.action['casualities'].append(1)
 
                 # Perform formation control
                 self.formation_primitive()

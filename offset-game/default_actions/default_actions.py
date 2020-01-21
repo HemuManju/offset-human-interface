@@ -25,9 +25,8 @@ def initial_nodes_setup(config):
 def blue_team_actions(config):
     # Variables
     default_actions = collections.defaultdict(dict)
-
     # Read fields for all the platoons
-    read_path = Path(__file__).parents[0] / 'blue_team_config.yml'
+    read_path = Path(__file__).parents[1] / 'config/blue_team_config.yml'
     attr = yaml.load(open(str(read_path)), Loader=yaml.SafeLoader)
 
     # Setup the uav platoons
@@ -66,12 +65,21 @@ def blue_team_actions(config):
     return default_actions
 
 
-def red_team_actions(config):
+def red_team_actions(config, team_type):
     # Variables
     default_actions = collections.defaultdict(dict)
 
     # Read fields for all the platoons
-    read_path = Path(__file__).parents[0] / 'red_team_config.yml'
+    if team_type == 'dynamic':
+        read_path = Path(
+            __file__).parents[1] / 'config/red_team_config_dynamic.yml'
+    elif team_type == 'static':
+        read_path = Path(
+            __file__).parents[1] / 'config/red_team_config_static.yml'
+    else:
+        read_path = Path(
+            __file__).parents[1] / 'config/red_team_config_baseline.yml'
+
     attr = yaml.load(open(str(read_path)), Loader=yaml.SafeLoader)
 
     # Get information about nodes
@@ -93,10 +101,11 @@ def red_team_actions(config):
 
         # Patrolling attributes
         if attr['uav_primitives']['primitives'][i] == 'patrolling':
-            source_id = attr['uav_primitives']['patrolling_nodes'][0]
-            sink_id = attr['uav_primitives']['patrolling_nodes'][1]
+            source_id = attr['uav_primitives']['patrolling_nodes'][i][0]
+            sink_id = attr['uav_primitives']['patrolling_nodes'][i][1]
             actions_uav['source_pos'] = nodes[source_id]['position']
             actions_uav['sink_pos'] = nodes[sink_id]['position']
+            actions_uav['primitive'] = 'patrolling'
 
         # Update the uav action
         default_actions['uav'][key] = actions_uav
@@ -118,10 +127,11 @@ def red_team_actions(config):
         # Patrolling attributes
         if attr['ugv_primitives']['primitives'][i] == 'patrolling':
             actions_ugv['primitive'] = 'patrolling'
-            source_id = attr['ugv_primitives']['patrolling_nodes'][0]
-            sink_id = attr['ugv_primitives']['patrolling_nodes'][1]
+            source_id = attr['ugv_primitives']['patrolling_nodes'][i][0]
+            sink_id = attr['ugv_primitives']['patrolling_nodes'][i][1]
             actions_ugv['source_pos'] = nodes[source_id]['position']
             actions_ugv['sink_pos'] = nodes[sink_id]['position']
+            actions_uav['primitive'] = 'patrolling'
 
         # Update the ugv action
         default_actions['ugv'][key] = actions_ugv

@@ -1,81 +1,83 @@
 import yaml
 from pathlib import Path
-import time
 
 import ray
 
-from lsl.stream_data import states_packets
-from server.parameters import ParameterServer
+from server.parameter_server import ParameterServer
+
+from envs.red_team.red_base import RedTeam
+from envs.blue_team.blue_base import BlueTeam
+
+from interaction.interaction_manager import InteractionManager
 from gui.main import MainGUI
-from envs.benning_env import BenningEnv
-from envs.default_actions import blue_team_actions, red_team_actions
+from lsl.mainlsl import Mainlsl
 
 from utils import skip_run
 
-config_path = Path(__file__).parents[1] / 'offset-game/config.yml'
+config_path = Path(__file__).parents[0] / 'config/simulation_config.yml'
 config = yaml.load(open(str(config_path)), Loader=yaml.SafeLoader)
 
-with skip_run('skip', 'Game Test') as check, check():
+with skip_run('skip', 'Test Framework') as check, check():
 
     # Initiate ray
     if not ray.is_initialized():
-        ray.init(num_cpus=5)
+        ray.init(num_cpus=10)
 
     # Instantiate parameter server
     ps = ParameterServer.remote(config)
 
-    # Instantiate environment
-    env = BenningEnv.remote(config)
+    # Instantiate red and blue teams
+    red_team = RedTeam.remote(config)
+    blue_team = BlueTeam.remote(config)
 
-    # Instantiate GUI
+    # Interaction Manager
+    interaction_manager = InteractionManager.remote(config)
+
+    # GUI
     gui = MainGUI.remote(config, (1500, 750), ps)
 
+    # Get the run ids
+    blue_run_id = blue_team.step.remote(ps)
+    red_run_id = red_team.step.remote(ps)
+    int_run_id = interaction_manager.step.remote(ps)
     gui_run_id = gui.run.remote(ps)
-    env_run_id = env.step.remote(ps)
-    ray.wait([env_run_id, gui_run_id])
-    print(time.time() - ray.get(gui.get_start_time.remote()))
+
+    # Run all the clients in parallel
+    ray.get([red_run_id, blue_run_id, int_run_id, gui_run_id])
 
     # Shutdown ray
     ray.shutdown()
 
-with skip_run('skip', 'Complexity Test') as check, check():
+with skip_run('run', 'Test Framework with LSL') as check, check():
 
     # Initiate ray
     if not ray.is_initialized():
-        ray.init(num_cpus=4)
+        ray.init(num_cpus=10)
 
     # Instantiate parameter server
     ps = ParameterServer.remote(config)
 
-    # Instantiate complex environment
+    # Instantiate red and blue teams
+    red_team = RedTeam.remote(config)
+    blue_team = BlueTeam.remote(config)
 
-    # Instantiate environment
-    env = BenningEnv.remote(config)
+    # Interaction Manager
+    # interaction_manager = InteractionManager.remote(config)
 
-    # Instantiate GUI
+    # GUI
     gui = MainGUI.remote(config, (1500, 750), ps)
 
-    # Get the remote IDs of simulations
-    gui_run_id = gui.run.remote(ps)
-    env_run_id = env.step.remote(ps)
+    lsl = Mainlsl.remote()
 
-    # Get the labstreaming data
-    lsl_state_id = states_packets.remote(ps)
+    # Get the run ids
+    blue_run_id = blue_team.step.remote(ps)
+    red_run_id = red_team.step.remote(ps)
+    # int_run_id = interaction_manager.step.remote(ps)
+    gui_run_id = gui.run.remote(ps, with_complexity=False)
+    lsl_run_id = lsl.run.remote(ps)
 
-    # Run the simulation
-    ray.wait([env_run_id, gui_run_id, lsl_state_id])
-    print(time.time() - ray.get(gui.get_start_time.remote()))
+    # Run all the clients in parallel
+    ray.get([red_run_id, blue_run_id, gui_run_id])
 
     # Shutdown ray
     ray.shutdown()
-
-with skip_run('run', 'Test New Framework') as check, check():
-
-    # Get default actions
-    blue_actions = blue_team_actions(config)
-    red_actions = red_team_actions(config)
-
-    # Instantiate environment
-    env = BenningEnv(config)
-    env.step(blue_actions['uav'], blue_actions['ugv'], red_actions['uav'],
-             red_actions['ugv'])

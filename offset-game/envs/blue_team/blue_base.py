@@ -1,65 +1,49 @@
-import yaml
 from pathlib import Path
 import numpy as np
 
+import ray
+
 from .primitive_manager import PrimitiveManager
 
+from ..base_env import BaseEnv
 from ..state_manager import StateManager
 from ..action_manager import ActionManager
 
-from ..agents import UaV, UgV
 
+@ray.remote
+class BlueTeam(BaseEnv):
+    def __init__(self, config):
 
-def get_initial_positions(init_pos, r, n):
-    positions = []
-    t = np.linspace(0, 2 * np.pi, n)
-    x = init_pos[0] + r * np.cos(t)
-    y = init_pos[1] + r * np.sin(t)
-    positions = np.asarray([x, y, x * 0 + 5]).T.tolist()
-    return positions
+        # Initialise the base environment
+        super().__init__(config)
 
-
-class BlueTeam(object):
-    def __init__(self, p, config):
-        self.p = p
         # Environment parameters
         self.current_time = config['simulation']['current_time']
         self.done = False
         self.config = config
 
+        # Load the environment
+        if self.config['simulation']['collision_free']:
+            path = Path(
+                __file__).parents[1] / 'urdf/environment_collision_free.urdf'
+        else:
+            path = Path(__file__).parents[1] / 'urdf/environment.urdf'
+
+        self.p.loadURDF(str(path), [25, 140, 44],
+                        self.p.getQuaternionFromEuler([
+                            -0.45 * np.pi / 180, -24.5 * np.pi / 180,
+                            -20.0 * np.pi / 180
+                        ]),
+                        flags=self.p.URDF_USE_MATERIAL_COLORS_FROM_MTL,
+                        useFixedBase=True)
+
         # Initialize the state and action components
         self.state_manager = StateManager(self.current_time, self.config)
-        uav, ugv = self._initial_uxv_setup(self.p)
+        uav, ugv = super()._initial_uxv_setup(team_type='blue')
         self.state_manager._initial_uxv(uav, ugv)  # Append the UxV
         self.action_manager = ActionManager(self.state_manager,
-                                            PrimitiveManager)
-
-    def _initial_uxv_setup(self, p):
-        # Read the configuration of platoons
-        read_path = Path(__file__).parents[1] / 'blue_team_config.yml'
-        config = yaml.load(open(str(read_path)), Loader=yaml.SafeLoader)
-
-        # Containers
-        ugv, uav = [], []
-        init_orient = p.getQuaternionFromEuler([np.pi / 2, 0, 0])
-
-        for i, node in enumerate(config['ugv_platoon']['initial_nodes_pos']):
-            init_pos = self.state_manager.node_info(node)['position']
-            n_vehicles = config['ugv_platoon']['n_vehicles'][i]
-            positions = get_initial_positions(init_pos, 4, n_vehicles)
-            for j, position in enumerate(positions):
-                ugv.append(
-                    UgV(p, position, init_orient, j, self.config, 'blue'))
-
-        for i, node in enumerate(config['uav_platoon']['initial_nodes_pos']):
-            init_pos = self.state_manager.node_info(node)['position']
-            n_vehicles = config['uav_platoon']['n_vehicles'][i]
-            positions = get_initial_positions(init_pos, 4, n_vehicles)
-            for j, position in enumerate(positions):
-                uav.append(
-                    UaV(p, position, init_orient, j, self.config, 'blue'))
-
-        return uav, ugv
+                                            PrimitiveManager,
+                                            team_type='blue')
 
     def reset(self):
         """
@@ -77,9 +61,9 @@ class BlueTeam(object):
     def get_attributes(self, attributes):
         return self.action_manager.platoon_attributes(attributes)
 
-    def execute(self):
-        """Take a step in the environement
+    def step(self, ps):
+        """Execute the actions of uav and ugv
         """
-        # Execute the actions
-        self.action_manager.primitive_execution()
+        # Perform the action
+        self.action_manager.primitive_execution(self.p, ps)
         return None

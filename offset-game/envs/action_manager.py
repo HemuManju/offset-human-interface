@@ -1,7 +1,17 @@
+import time
+
+import ray
+
+
 class ActionManager(object):
-    def __init__(self, state_manager, PrimitiveManager):
+    def __init__(self, state_manager, PrimitiveManager, team_type):
         self.state_manager = state_manager
         self.config = state_manager.config
+
+        if team_type == 'red':
+            self.complexity = True
+        else:
+            self.complexity = False
 
         # Setup the platoons
         self._init_platoons_setup(PrimitiveManager)
@@ -85,29 +95,25 @@ class ActionManager(object):
         vehicles: list
             A list of vehicle instance of uav or ugv
         """
-        vehicles, vehicles_id = [], []
+        vehicles_id = []
         if vehicles_type == 'uav':
             for uav in self.state_manager.uav:
-                # TODO: Need to come up with new method
-                # 1. Replaceed the idle data
                 if uav.idle and uav.functional:
-                    vehicles.append(uav)
                     vehicles_id.append(uav.vehicle_id)
                     uav.idle = False  # Once allocated they are non-idles
 
-                if len(vehicles) == n_vehicles:
+                if len(vehicles_id) == n_vehicles:
                     break
         else:
             for ugv in self.state_manager.ugv:
                 if ugv.idle and ugv.functional:
-                    vehicles.append(ugv)
                     vehicles_id.append(ugv.vehicle_id)
                     ugv.idle = False  # Once allocated they are non-idles
 
-                if len(vehicles) == n_vehicles:
+                if len(vehicles_id) == n_vehicles:
                     break
 
-        return vehicles_id, vehicles
+        return vehicles_id
 
     def get_image(self, platoon_id, platoon_type, vehicle_id, image_type):
         """Get the image of the agent
@@ -157,12 +163,12 @@ class ActionManager(object):
                 actions_uav[key]['execute'] = False
             else:
                 # Perform vehicle allocation
-                vehicles_id, vehicles = self.get_allocated_vehicle(
-                    n_vehicles, vehicles_type='uav')
+                vehicles_id = self.get_allocated_vehicle(n_vehicles,
+                                                         vehicles_type='uav')
 
                 # Update actions
                 actions_uav[key]['vehicles_id'] = vehicles_id
-                actions_uav[key]['vehicles'] = vehicles
+                actions_uav[key]['vehicles_type'] = 'uav'
 
             # Allocate
             self.uav_platoons[key].allocate_action(actions_uav[key])
@@ -176,12 +182,11 @@ class ActionManager(object):
                 actions_ugv[key]['execute'] = False
             else:
                 # Perform vehicle allocation
-                vehicles_id, vehicles = self.get_allocated_vehicle(
-                    n_vehicles, vehicles_type='ugv')
-
+                vehicles_id = self.get_allocated_vehicle(n_vehicles,
+                                                         vehicles_type='ugv')
                 # Update actions
                 actions_ugv[key]['vehicles_id'] = vehicles_id
-                actions_ugv[key]['vehicles'] = vehicles
+                actions_ugv[key]['vehicles_type'] = 'ugv'
 
             # Allocate
             self.ugv_platoons[key].allocate_action(actions_ugv[key])
@@ -194,7 +199,7 @@ class ActionManager(object):
             ugv.idle = True
         return None
 
-    def primitive_execution(self):
+    def primitive_execution(self, pb, ps):
         """Performs task execution
 
         Parameters
@@ -207,18 +212,23 @@ class ActionManager(object):
             Whether hand coded tactics are being used or not
         """
 
-        primitives_done = []
-        # Update all the ugv vehicles
-        for key in self.ugv_platoons:
-            primitives_done.append(self.ugv_platoons[key].execute_primitive())
+        # Roll the primitives
+        start_time = time.time()
+        current_time = 0
+        duration = self.config['experiment']['duration']
 
-        # Update all the uav vehicles
-        for key in self.uav_platoons:
-            primitives_done.append(self.uav_platoons[key].execute_primitive())
+        # Get latest actions
+        actions = ray.get(ps.get_action.remote(self.complexity))
 
-        if all(item for item in primitives_done):
-            done_rolling = True
-        else:
-            done_rolling = False
+        # Perform action allocation
+        self.perform_action_allocation(actions['uav'], actions['ugv'])
+        while current_time <= duration:
+            for key in self.uav_platoons:
+                self.uav_platoons[key].execute_primitive(pb, ps)
 
-        return done_rolling
+            # Update all the ugv vehicles and write to parameter server
+            for key in self.ugv_platoons:
+                self.ugv_platoons[key].execute_primitive(pb, ps)
+
+            current_time = time.time() - start_time
+        return None

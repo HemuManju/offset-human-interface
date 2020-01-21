@@ -1,5 +1,4 @@
 from scipy.spatial.distance import cdist
-from sklearn.metrics import pairwise_distances_argmin_min
 
 import numpy as np
 

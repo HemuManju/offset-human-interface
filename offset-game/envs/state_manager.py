@@ -9,6 +9,7 @@ class StateManager():
 
         self.current_time = current_time
         self.config = config
+
         self.found_goal = False
 
         # Initial setup
