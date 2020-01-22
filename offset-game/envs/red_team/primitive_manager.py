@@ -9,7 +9,7 @@ from ..primitives.engaging.shooting import Shooting
 
 
 class PrimitiveManager(object):
-    def __init__(self, state_manager):
+    def __init__(self, state_manager, uav, ugv):
         """A base class to perform different primitives.
 
         Parameters
@@ -18,6 +18,8 @@ class PrimitiveManager(object):
             An instance of state manager
         """
         self.state_manager = state_manager
+        self.uav = uav
+        self.ugv = ugv
         self.dt = self.state_manager.config['simulation']['time_step']
 
         # Instance of primitives
@@ -29,33 +31,34 @@ class PrimitiveManager(object):
         self.patrol_poins = []
         return None
 
-    def updated_vehicles_state(self):
+    def assign_vehicles(self):
         # Allocate vehicles
         self.vehicles = []
         if self.action['vehicles_type'] == 'uav':
             for j in self.action['vehicles_id']:
-                vehicle = self.state_manager.uav[j]
-                vehicle.speed = 1.0
+                vehicle = self.uav[j]
                 if vehicle.functional:
                     self.vehicles.append(vehicle)
         else:
             for j in self.action['vehicles_id']:
-                vehicle = self.state_manager.ugv[j]
-                vehicle.speed = 1.0
+                vehicle = self.ugv[j]
                 if vehicle.functional:
                     self.vehicles.append(vehicle)
         return None
 
+    def get_vehicles_info(self):
+        vehicles_info = [vehicle.get_info() for vehicle in self.vehicles]
+        return vehicles_info
+
     def allocate_action(self, action):
         self.action = action
         self.key = action['vehicles_type'] + '_p_' + str(action['platoon_id'])
-        self.updated_vehicles_state()
+        self.assign_vehicles()
         return None
 
-    def execute_primitive(self, pb, ps):
+    def execute_primitive(self, ps):
         """Perform primitive execution
         """
-        done = False
         primitives = {
             'planning': self.planning_primitive,
             'formation': self.formation_primitive,
@@ -71,27 +74,19 @@ class PrimitiveManager(object):
         self.action = actions[self.action['vehicles_type']][key]
 
         # Get the required vehicles state
-        self.updated_vehicles_state()
+        self.assign_vehicles()
 
         game_state = ray.get(ps.get_game_state.remote())
 
         if self.action['execute'] and not game_state['pause']:
-            done = primitives[self.action['primitive']]()
-            # Step the simulation
-            pb.stepSimulation()
+            primitives[self.action['primitive']]()
 
-            # Set the actions and states
+            # Set the actions
             self.action['centroid_pos'] = self.get_centroid()
+            self.action['vehicles_info'] = self.get_vehicles_info()
             ps.set_action.remote(self.action, complexity=True)
 
-            # Pickled object cannot connect to bullet.
-            # That is why using the state variable
-
-            # Set the states
-            self.state = self.action
-            self.state['vehicles'] = self.vehicles
-            ps.set_state.remote(self.state, complexity=True)
-        return done
+        return self.action
 
     def get_centroid(self):
         """Get the centroid of the vehicles

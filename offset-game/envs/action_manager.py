@@ -1,40 +1,19 @@
-import time
-
 import ray
 
 
 class ActionManager(object):
-    def __init__(self, state_manager, PrimitiveManager, team_type):
-        self.state_manager = state_manager
-        self.config = state_manager.config
+    def __init__(self, uav, ugv, physics_client, config, team_type):
+
+        self._p = physics_client
+
+        self.uav = uav
+        self.ugv = ugv
+        self.config = config
 
         if team_type == 'red':
             self.complexity = True
         else:
             self.complexity = False
-
-        # Setup the platoons
-        self._init_platoons_setup(PrimitiveManager)
-        return None
-
-    def _init_platoons_setup(self, PrimitiveManager):
-        """Initial setup of platoons with primitive execution class.
-            Each platoon name is given as uxv_p_* where * is the platoon number
-            and x is either 'a' or 'g' depending on platoon type.
-            The containers used for platoons are dict where key is uxv_p_*
-
-            As an example one of the keys is 'uav_p_1'
-            which is platoon 1 of type uav
-        """
-        self.uav_platoons = {}  # A container for platoons
-        for i in range(self.config['simulation']['n_uav_platoons']):
-            key = 'uav_p_' + str(i + 1)
-            self.uav_platoons[key] = PrimitiveManager(self.state_manager)
-
-        self.ugv_platoons = {}
-        for i in range(self.config['simulation']['n_ugv_platoons']):
-            key = 'ugv_p_' + str(i + 1)
-            self.ugv_platoons[key] = PrimitiveManager(self.state_manager)
         return None
 
     def platoon_attributes(self, attributes):
@@ -97,7 +76,7 @@ class ActionManager(object):
         """
         vehicles_id = []
         if vehicles_type == 'uav':
-            for uav in self.state_manager.uav:
+            for uav in self.uav:
                 if uav.idle and uav.functional:
                     vehicles_id.append(uav.vehicle_id)
                     uav.idle = False  # Once allocated they are non-idles
@@ -105,7 +84,7 @@ class ActionManager(object):
                 if len(vehicles_id) == n_vehicles:
                     break
         else:
-            for ugv in self.state_manager.ugv:
+            for ugv in self.ugv:
                 if ugv.idle and ugv.functional:
                     vehicles_id.append(ugv.vehicle_id)
                     ugv.idle = False  # Once allocated they are non-idles
@@ -144,7 +123,8 @@ class ActionManager(object):
                 vehicle_id, image_type)
         return image
 
-    def perform_action_allocation(self, actions_uav, actions_ugv):
+    def perform_action_allocation(self, actions_uav, actions_ugv, uav_group,
+                                  ugv_group):
         """Perfroms action allocation and
 
             Parameters
@@ -154,6 +134,10 @@ class ActionManager(object):
             actions_ugv : dict
                 UGV decoded actions
             """
+
+        self.uav_platoons = uav_group
+        self.ugv_platoons = ugv_group
+
         # UAV Actions
         for key in actions_uav:
             n_vehicles = actions_uav[key]['n_vehicles']
@@ -165,7 +149,6 @@ class ActionManager(object):
                 # Perform vehicle allocation
                 vehicles_id = self.get_allocated_vehicle(n_vehicles,
                                                          vehicles_type='uav')
-
                 # Update actions
                 actions_uav[key]['vehicles_id'] = vehicles_id
                 actions_uav[key]['vehicles_type'] = 'uav'
@@ -193,13 +176,13 @@ class ActionManager(object):
         return None
 
     def make_vehicles_idle(self):
-        for uav in self.state_manager.uav:
+        for uav in self.uav:
             uav.idle = True
-        for ugv in self.state_manager.ugv:
+        for ugv in self.ugv:
             ugv.idle = True
         return None
 
-    def primitive_execution(self, pb, ps):
+    def roll_actions(self, ps):
         """Performs task execution
 
         Parameters
@@ -212,23 +195,13 @@ class ActionManager(object):
             Whether hand coded tactics are being used or not
         """
 
-        # Roll the primitives
-        start_time = time.time()
-        current_time = 0
-        duration = self.config['experiment']['duration']
+        for key in self.uav_platoons:
+            self.uav_platoons[key].execute_primitive(ps)
+            self._p.stepSimulation()
 
-        # Get latest actions
-        actions = ray.get(ps.get_action.remote(self.complexity))
+        # Update all the ugv vehicles and write to parameter server
+        for key in self.ugv_platoons:
+            self.ugv_platoons[key].execute_primitive(ps)
+            self._p.stepSimulation()
 
-        # Perform action allocation
-        self.perform_action_allocation(actions['uav'], actions['ugv'])
-        while current_time <= duration:
-            for key in self.uav_platoons:
-                self.uav_platoons[key].execute_primitive(pb, ps)
-
-            # Update all the ugv vehicles and write to parameter server
-            for key in self.ugv_platoons:
-                self.ugv_platoons[key].execute_primitive(pb, ps)
-
-            current_time = time.time() - start_time
         return None
