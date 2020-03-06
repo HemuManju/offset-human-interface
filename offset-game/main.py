@@ -24,7 +24,7 @@ with skip_run('run', 'Test Framework') as check, check():
         ray.init(num_cpus=10)
 
     # Instantiate parameter server
-    ps = ParameterServer.remote(config, team_type='dynamic')
+    ps = ParameterServer.remote(config, 'dynamic')
 
     # Instantiate red and blue teams
     red_team = RedTeam.remote(config)

@@ -1,9 +1,13 @@
+from pathlib import Path
+
+import numpy as np
+
 import pybullet as p
 import pybullet_data
 from pybullet_utils import bullet_client
 
 
-class BaseEnv(object):
+class BenningEnv(object):
     def __init__(self, config):
         self.config = config
         # Usage mode
@@ -29,6 +33,21 @@ class BaseEnv(object):
             numSubSteps=1,
             numSolverIterations=5)
         self.p.configureDebugVisualizer(self.p.COV_ENABLE_GUI, 0)
+
+        # Load the environment
+        if self.config['simulation']['collision_free']:
+            path = Path(__file__).parents[
+                1] / 'envs/urdf/environment_collision_free.urdf'
+        else:
+            path = Path(__file__).parents[1] / 'envs/urdf/environment.urdf'
+
+        self.p.loadURDF(str(path), [25, 140, 44],
+                        self.p.getQuaternionFromEuler([
+                            -0.45 * np.pi / 180, -24.5 * np.pi / 180,
+                            -20.0 * np.pi / 180
+                        ]),
+                        flags=self.p.URDF_USE_MATERIAL_COLORS_FROM_MTL,
+                        useFixedBase=True)
 
         # Setup ground
         # plane = self.p.loadURDF("plane.urdf", [0, 0, 0],
